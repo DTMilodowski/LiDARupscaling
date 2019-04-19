@@ -187,19 +187,20 @@ def load_predictors(site_id = 'kiuic', path2data = "/exports/csce/datastore/geos
     # Load the sentinel data
     nodata=[]
     labels = []
-    for ff in sorted(glob.glob('%s%s*tif' % (path2sentinel,site))):
+    for ff in sorted(glob.glob('%s%s*tif' % (path2sentinel,site_id))):
         nodata.append(rasterio.open(ff).nodatavals[0])
         labels.append(ff.split('/')[-1].split('.')[0])
 
-    sentinel = xr.concat([xr.open_rasterio(f) for f in sorted(glob.glob('%s%s*tif' % (path2sentinel,site)))],dim='band')
+    sentinel = xr.concat([xr.open_rasterio(f) for f in sorted(glob.glob('%s%s*tif' % (path2sentinel,site_id)))],dim='band')
     mask = sentinel[0]!=nodata[0]
     for ii in range(sentinel.shape[0]):
         mask = mask & (sentinel[ii]!=nodata[ii])
     print('Loaded Sentinel-2 data')
 
     # also load the LiDAR data to check we only keep pixels with AGB estimates
-    file = glob.glob(path2lidar+site+'*.tif')[0]
+    file = glob.glob(path2lidar+site_id+'*.tif')[0]
     agb = xr.open_rasterio(file)
+    agb[agb==rasterio.open(file).nodatavals[0]]=np.nan # set nodata
     print('Loaded LiDAR AGB data')
 
     #create the empty array to store the predictors
