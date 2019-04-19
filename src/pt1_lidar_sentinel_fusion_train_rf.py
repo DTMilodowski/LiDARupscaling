@@ -40,3 +40,12 @@ sys.path.append('./data_io/')
 sys.path.append('./data_visualisation/')
 
 import data_io as io
+
+"""
+#===============================================================================
+PART A: LOAD IN DATA AND SUBSET THE TRAINING DATA
+Fit random forest regression models to estimate potential biomass stocks.
+Calibrate and validate potential biomass models
+#-------------------------------------------------------------------------------
+"""
+predictors,AGB,landmask,labels=io.load_predictors()
