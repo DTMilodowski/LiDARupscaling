@@ -16,6 +16,8 @@ import numpy as np
 import glob
 import xarray as xr #xarray to read all types of formats
 import rasterio
+from osgeo import gdal
+import osr
 
 """
 load_geotiff
@@ -192,23 +194,24 @@ def load_predictors(site_id = 'kiuic', path2data = "/exports/csce/datastore/geos
         labels.append(ff.split('/')[-1].split('.')[0])
 
     sentinel = xr.concat([xr.open_rasterio(f) for f in sorted(glob.glob('%s%s*tif' % (path2sentinel,site_id)))],dim='band')
-    mask = sentinel[0]!=nodata[0]
+    mask = sentinel[0].values!=nodata[0]
     for ii in range(sentinel.shape[0]):
-        mask = mask & (sentinel[ii]!=nodata[ii])
+        mask = mask & (sentinel[ii].values!=nodata[ii])
     print('Loaded Sentinel-2 data')
 
     # also load the LiDAR data to check we only keep pixels with AGB estimates
     file = glob.glob(path2lidar+site_id+'*.tif')[0]
-    agb = xr.open_rasterio(file)
+    agb = xr.open_rasterio(file).values
     agb[agb==rasterio.open(file).nodatavals[0]]=np.nan # set nodata
     print('Loaded LiDAR AGB data')
 
     #create the empty array to store the predictors
+    print(mask.sum(),mask.size)
     predictors = np.zeros([mask.sum(),sentinel.shape[0]])
 
     # check the mask dimensions
-    if len(landmask.shape)>2:
-        print('\t\t caution shape of landmask is: ', landmask.shape)
+    if len(mask.shape)>2:
+        print('\t\t caution shape of landmask is: ', mask.shape)
         mask = mask[0]
 
     #iterate over variables to create the large array with data
@@ -218,7 +221,7 @@ def load_predictors(site_id = 'kiuic', path2data = "/exports/csce/datastore/geos
         predictors[:,counter] = vv.values[mask]
         counter += 1
 
-    target = agb.values[0][mask]
+    target = agb[0]#[mask]
     print('Extracted sentinel layers, with corresponding LiDAR AGB')
 
     return(predictors,target,mask,labels)
