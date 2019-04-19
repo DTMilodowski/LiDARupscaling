@@ -39,8 +39,8 @@ Optional arguments are:
 """
 def load_geotiff(filename, band = 1,x_name='longitude',y_name='latitude',option=0):
     xarr = xr.open_rasterio(filename).sel(band=band)
-    xarr = xarr.rename(x=x_name,y=y_name)
-    xarr.values[xarr.values==xarr.nodatavals[0]]=np.nan
+    if(option==0):
+        xarr.values[xarr.values==xarr.nodatavals[0]]=np.nan
     if(option==1):
         xarr.values[xarr.values<-3*10**38]=np.nan
     if(option==2):
