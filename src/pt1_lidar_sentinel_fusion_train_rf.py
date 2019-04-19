@@ -44,8 +44,26 @@ import data_io as io
 """
 #===============================================================================
 PART A: LOAD IN DATA AND SUBSET THE TRAINING DATA
-Fit random forest regression models to estimate potential biomass stocks.
-Calibrate and validate potential biomass models
+Load data
+Filter areas where we have LiDAR estimates
+Subsample if desired/required
 #-------------------------------------------------------------------------------
 """
 predictors,AGB,landmask,labels=io.load_predictors()
+
+"""
+#===============================================================================
+PART B: CAL-VAL
+Cal-val
+Cal-val figures
+Importances via permutation importance
+#-------------------------------------------------------------------------------
+"""
+
+"""
+#===============================================================================
+PART C: FINAL FIT
+Fit model with full training set
+Save model
+#-------------------------------------------------------------------------------
+"""
