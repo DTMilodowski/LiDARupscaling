@@ -28,6 +28,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.externals import joblib
 
 import eli5
 from eli5.sklearn import PermutationImportance
@@ -40,6 +41,7 @@ sys.path.append('./data_io/')
 sys.path.append('./data_visualisation/')
 
 import data_io as io
+import general_plots as gplt
 
 """
 Project Info
@@ -47,8 +49,13 @@ Project Info
 site_id = 'kiuic'
 version = '001'
 path2alg = '../saved_models/'
-path2predictors = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/sentinel/processed/'
-path2target = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/lidar/processed/'
+if(os.path.isdir(path2alg)==False):
+    os.mkdir(path2alg)
+path2fig= '../figures/'
+if(os.path.isdir(path2fig)==False):
+    os.mkdir(path2fig)
+#path2predictors = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/sentinel/processed/'
+#path2target = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/lidar/processed/'
 
 """
 #===============================================================================
@@ -62,9 +69,9 @@ Subsample if desired/required
 predictors,target,landmask,labels=io.load_predictors()
 
 # Keep only areas for which we have biomass estimates
-mask = np.isfinite(target)
+mask = np.isfinite(target[landmask])
 X = predictors[mask,:]
-y = target[mask]
+y = target[landmask][mask]
 
 """
 #===============================================================================
@@ -105,13 +112,14 @@ print("Validation R^2 = %.02f" % val_score)
 
 # Plot cal-val
 fig1,axes = gplt.plot_cal_val_agb(y_train,y_train_rf,y_test,y_test_rf)
-
+fig1.savefig('%s%s_%s_cal_val.png' % (path2fig,site_id,version))
 # Importances
 perm = PermutationImportance(rf).fit(X_test, y_test)
 imp_df = pd.DataFrame(data = {'variable': labels,
                               'permutation_importance': perm.feature_importances_,
                               'gini_importance': rf.feature_importances_})
-gplt.plot_importances(imp_df)
+fig2,axes = gplt.plot_importances(imp_df)
+fig2.savefig('%s%s_%s_cal_val.png' % (path2fig,site_id,version))
 
 """
 #===============================================================================
