@@ -10,6 +10,8 @@ This code built using the open source programming language python, and utilises
 the geospatial library xarray (http://xarray.pydata.org/en/stable/) and the
 machine learning library scikit-learn
 (https://scikit-learn.org/stable/index.html).
+
+24/04/2019 - D. T. Milodowski
 --------------------------------------------------------------------------------
 """
 
@@ -21,7 +23,7 @@ import xarray as xr                 # xarray geospatial package
 import pandas as pd                 # data frames
 import matplotlib.pyplot as plt     # plotting package
 import seaborn as sns               # another useful plotting package
-#sns.set()                           # set some nice default plotting options
+import os
 
 # Import some parts of the scikit-learn library
 from sklearn.ensemble import RandomForestRegressor
@@ -54,8 +56,6 @@ if(os.path.isdir(path2alg)==False):
 path2fig= '../figures/'
 if(os.path.isdir(path2fig)==False):
     os.mkdir(path2fig)
-#path2predictors = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/sentinel/processed/'
-#path2target = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/lidar/processed/'
 
 """
 #===============================================================================
