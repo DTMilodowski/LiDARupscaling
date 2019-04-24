@@ -47,6 +47,8 @@ Project Info
 site_id = 'kiuic'
 version = '001'
 path2alg = '../saved_models/'
+path2predictors = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/sentinel/processed/'
+path2target = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/lidar/processed/'
 
 """
 #===============================================================================
