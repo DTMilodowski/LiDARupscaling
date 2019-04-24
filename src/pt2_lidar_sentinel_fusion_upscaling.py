@@ -74,6 +74,7 @@ template = io.load_geotiff(template_file,option=1)
 #let's copy to a new xarray for AGBpot
 agb = io.copy_xarray_template(template)
 agb.values[landmask] = agb_mod.copy()
+agb.values[agb.values==-9999]=np.nan
 
 """
 #===============================================================================
