@@ -200,13 +200,12 @@ def load_predictors(site_id = 'kiuic', path2data = "/exports/csce/datastore/geos
     print('Loaded Sentinel-2 data')
 
     # also load the LiDAR data to check we only keep pixels with AGB estimates
-    file = glob.glob(path2lidar+site_id+'*.tif')[0]
+    file = glob.glob(path2lidar+site_id+'*regridded.tif')[0]
     agb = xr.open_rasterio(file).values
     agb[agb==rasterio.open(file).nodatavals[0]]=np.nan # set nodata
     print('Loaded LiDAR AGB data')
 
     #create the empty array to store the predictors
-    print(mask.sum(),mask.size)
     predictors = np.zeros([mask.sum(),sentinel.shape[0]])
 
     # check the mask dimensions
