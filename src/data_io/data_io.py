@@ -132,7 +132,7 @@ def write_xarray_to_GeoTiff(array, OUTFILE_prefix,north_up=True):
 
     # create geotrans object
     geoTrans = create_geoTrans(array)
-    EPSG_CODE = array.attrs['crs'].split(':')[-1]
+    #EPSG_CODE = array.attrs['crs'].split(':')[-1]
 
     # check orientation
     array.values,geoTrans = check_array_orientation(array.values,geoTrans,north_up=north_up)
@@ -147,9 +147,9 @@ def write_xarray_to_GeoTiff(array, OUTFILE_prefix,north_up=True):
     # set all the relevant geospatial information
     dataset = driver.Create( OUTFILE_prefix+'.tif', NCols, NRows, NBands, gdal.GDT_Float32 )
     dataset.SetGeoTransform( geoTrans )
-    srs = osr.SpatialReference()
-    srs.SetWellKnownGeogCS( 'EPSG:'+EPSG_CODE )
-    dataset.SetProjection( srs.ExportToWkt() )
+    #srs = osr.SpatialReference()
+    #srs.SetWellKnownGeogCS( 'EPSG:'+EPSG_CODE )
+    #dataset.SetProjection( srs.ExportToWkt() )
     # write array
     dataset.GetRasterBand(1).SetNoDataValue( -9999 )
     dataset.GetRasterBand(1).WriteArray( array.values )
