@@ -20,117 +20,57 @@ machine learning library scikit-learn
 """
 import numpy as np                  # standard package for scientific computing
 import xarray as xr                 # xarray geospatial package
-import pandas as pd                 # data frames
-import matplotlib.pyplot as plt     # plotting package
-import seaborn as sns               # another useful plotting package
 import os
 
 # Import some parts of the scikit-learn library
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score, mean_squared_error
-from sklearn.externals import joblib
-
-import eli5
-from eli5.sklearn import PermutationImportance
 
 # Import custom libaries
-
 import sys
-sys.path.append('./random_forest/')
 sys.path.append('./data_io/')
-sys.path.append('./data_visualisation/')
 
 import data_io as io
-import general_plots as gplt
 
 """
 Project Info
 """
 site_id = 'kiuic'
-version = '001'
-path2alg = '../saved_models/'
-if(os.path.isdir(path2alg)==False):
-    os.mkdir(path2alg)
 path2fig= '../figures/'
 if(os.path.isdir(path2fig)==False):
     os.mkdir(path2fig)
+path2clipped = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/sentinel/band_correction/overlap/'
+path2full = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/sentinel/band_correction/full_extent/'
+path2processed = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/sentinel/band_correction/processed/'
 
 """
 #===============================================================================
-PART A: LOAD IN DATA AND SUBSET THE TRAINING DATA
-Load data
-Filter areas where we have LiDAR estimates
-Subsample if desired/required
+For each band
+- load clipped scenes where overlapping
+- linear regression
+- load full scene for tile 2
+- apply linear model to tile 2 to match tile 1
 #-------------------------------------------------------------------------------
 """
-# Load predictors & target
-predictors,target,landmask,labels=io.load_predictors()
+for bb in range(0,4):
+    band = bb+1
+    clip1=xr.open_rasterio('%s%s1_overlap_b%i.tif' % (path2clipped,site_id,band))
+    clip2=xr.open_rasterio('%s%s2_overlap_b%i.tif' % (path2clipped,site_id,band))
+    X = clip2.values.reshape(clip2.values.size,1)
+    y = clip1.values.reshape(clip1.values.size)
+    mask = np.all((np.isfinite(clip1.values.ravel()),np.isfinite(clip2.values.ravel())),axis=0)
+    X=X[mask]
+    y=y[mask]
+    lm = LinearRegression()
+    lm.fit(X,y)
+    print("calibration score: %.02f" % lm.score(X,y))
 
-# Keep only areas for which we have biomass estimates
-mask = np.isfinite(target[landmask])
-X = predictors[mask,:]
-y = target[landmask][mask]
+    full2=xr.open_rasterio('%s%s2_band%i.tif' % (path2full,site_id,band))[0]
+    mask = np.isfinite(full2.values)
+    X = full2.values[mask].reshape(mask.sum(),1)
 
-"""
-#===============================================================================
-PART B: CAL-VAL
-Cal-val
-Cal-val figures
-Importances via permutation importance
-#-------------------------------------------------------------------------------
-"""
-X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,
-                                                    test_size=0.25)
-rf = RandomForestRegressor(bootstrap=True,
-            criterion='mse',           # criteria used to choose split point at each node
-            max_depth=None,            # ***maximum number of branching levels within each tree
-            max_features='auto',       # ***the maximum number of variables used in a given tree
-            max_leaf_nodes=None,       # the maximum number of leaf nodes per tree
-            min_impurity_decrease=0.0, # the miminum drop in the impurity of the clusters to justify splitting further
-            min_impurity_split=None,   # threshold impurity within an internal node before it will be split
-            min_samples_leaf=5,       # ***The minimum number of samples required to be at a leaf node
-            min_samples_split=20,       # ***The minimum number of samples required to split an internal node
-            min_weight_fraction_leaf=0.0,
-            n_estimators=100,          # ***Number of trees in the random forest
-            n_jobs=-1,                 # The number of jobs to run in parallel for both fit and predict
-            oob_score=True,            # use out-of-bag samples to estimate the R^2 on unseen data
-            random_state=None,         # seed used by the random number generator
-            verbose=0)
+    full2_new = io.copy_xarray_template(full2)
+    full2_new.values[mask]=lm.predict(X)
 
-# fit the calibration sample
-rf.fit(X_train,y_train)
-y_train_rf = rf.predict(X_train)
-cal_score = rf.score(X_train,y_train) # calculate coefficeint of determination R^2 of the calibration
-print("Calibration R^2 = %.02f" % cal_score)
-
-# fit the validation sample
-y_test_rf = rf.predict(X_test)
-val_score = rf.score(X_test,y_test)
-print("Validation R^2 = %.02f" % val_score)
-
-# Plot cal-val
-fig1,axes = gplt.plot_cal_val_agb(y_train,y_train_rf,y_test,y_test_rf)
-fig1.savefig('%s%s_%s_cal_val.png' % (path2fig,site_id,version))
-# Importances
-perm = PermutationImportance(rf).fit(X_test, y_test)
-imp_df = pd.DataFrame(data = {'variable': labels,
-                              'permutation_importance': perm.feature_importances_,
-                              'gini_importance': rf.feature_importances_})
-fig2,axes = gplt.plot_importances(imp_df)
-fig2.savefig('%s%s_%s_cal_val.png' % (path2fig,site_id,version))
-
-"""
-#===============================================================================
-PART C: FINAL FIT
-Fit model with full training set
-Save model
-#-------------------------------------------------------------------------------
-"""
-rf.fit(X,y)
-cal_score = rf.score(X,y) # calculate coefficeint of determination R^2 of the calibration
-print("Calibration R^2 = %.02f" % cal_score)
-
-# Save random forest model for future use
-joblib.dump(rf,'%s%s_%s_rf_sentinel_lidar_agb.pkl' % (path2alg,site_id,version))
+    outfile_prefix = ('%s%s2_band%i' % (path2processed,site_id,band))
+    io.write_xarray_to_GeoTiff(full2_new,outfile_prefix)
+    os.system('cp %s%s1_band%i.tif %s%s1_band%i.tif' % (path2full,site_id,band,path2processed,site_id,band))
