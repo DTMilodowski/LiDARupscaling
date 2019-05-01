@@ -63,11 +63,11 @@ def create_geoTrans(array,x_name='x',y_name='y'):
     dlat = lat[1]-lat[0]
     dlon = lon[1]-lon[0]
     geoTrans = [0,dlon,0,0,0,dlat]
-    geoTrans[0] = np.min(lon)
+    geoTrans[0] = np.min(lon)-dlon/2.
     if geoTrans[5]>0:
-        geoTrans[3]=np.min(lat)
+        geoTrans[3]=np.min(lat)-dlat/2.
     else:
-        geoTrans[3]=np.max(lat)
+        geoTrans[3]=np.max(lat)-dlat/2.
     return geoTrans
 
 
