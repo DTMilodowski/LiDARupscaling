@@ -41,6 +41,15 @@ if(os.path.isdir(path2fig)==False):
 path2clipped = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/sentinel/band_correction/overlap/'
 path2full = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/sentinel/band_correction/full_extent/'
 path2processed = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/sentinel/band_correction/processed/'
+path2final = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/sentinel/processed/'
+
+# Extent
+N = 2231870.281
+S = 2170879.873
+E =  262713.933
+W = 201723.525
+xres = 9.998427514012533
+yres = -9.998427514012489
 
 """
 #===============================================================================
@@ -49,6 +58,7 @@ For each band
 - linear regression
 - load full scene for tile 2
 - apply linear model to tile 2 to match tile 1
+- merge tiles
 #-------------------------------------------------------------------------------
 """
 for bb in range(0,4):
@@ -70,7 +80,13 @@ for bb in range(0,4):
 
     full2_new = io.copy_xarray_template(full2)
     full2_new.values[mask]=lm.predict(X)
+    full2_new.values[mask][full2_new.values[mask]<0]=0
 
-    outfile_prefix = ('%s%s2_band%i' % (path2processed,site_id,band))
+    outfile_prefix = ('%s%s2_band%i_corrected' % (path2processed,site_id,band))
     io.write_xarray_to_GeoTiff(full2_new,outfile_prefix)
-    os.system('cp %s%s1_band%i.tif %s%s1_band%i.tif' % (path2full,site_id,band,path2processed,site_id,band))
+
+    # use gdal to merge and warp to extent
+    os.system("gdal_merge.py -a_nodata -9999 -ot float32 -o %s%s_b%s_temp.tif %s%s2_band%i_corrected.tif %s%s1_band%i.tif" % (path2final, site_id, band, path2processed, site_id, band, path2full, site_id, band))
+    os.system("gdalwarp -overwrite -te %f %f %f %f -tr %f %f -r bilinear %s%s_b%i_temp.tif %s%s_b%i_merge.tif" % (W,S,E,N,xres,yres,path2final, site_id, band,path2final, site_id, band))
+    os.system("rm %s%s_b%i_temp.tif" % (path2final, site_id, band))
+    os.system("chmod +777 %s%s_b%i_merge.tif" % (path2final, site_id, band))
