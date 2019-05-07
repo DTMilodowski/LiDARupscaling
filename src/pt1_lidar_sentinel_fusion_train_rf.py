@@ -65,6 +65,7 @@ Filter areas where we have LiDAR estimates
 Subsample if desired/required
 #-------------------------------------------------------------------------------
 """
+print('Loading data')
 # Load predictors & target
 predictors,target,landmask,labels=io.load_predictors()
 
@@ -81,6 +82,7 @@ Cal-val figures
 Importances via permutation importance
 #-------------------------------------------------------------------------------
 """
+print('Calibration/validation')
 X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,
                                                     test_size=0.25)
 rf = RandomForestRegressor(bootstrap=True,
@@ -119,7 +121,7 @@ imp_df = pd.DataFrame(data = {'variable': labels,
                               'permutation_importance': perm.feature_importances_,
                               'gini_importance': rf.feature_importances_})
 fig2,axes = gplt.plot_importances(imp_df)
-fig2.savefig('%s%s_%s_cal_val.png' % (path2fig,site_id,version))
+fig2.savefig('%s%s_%s_importances.png' % (path2fig,site_id,version))
 
 """
 #===============================================================================
@@ -128,6 +130,7 @@ Fit model with full training set
 Save model
 #-------------------------------------------------------------------------------
 """
+print('Final calibration')
 rf.fit(X,y)
 cal_score = rf.score(X,y) # calculate coefficeint of determination R^2 of the calibration
 print("Calibration R^2 = %.02f" % cal_score)
