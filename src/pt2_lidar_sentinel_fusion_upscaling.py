@@ -28,6 +28,9 @@ import os
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.externals import joblib
 
+# Import cartographic projection library
+import cartopy.crs as ccrs
+
 # Import custom libaries
 import sys
 sys.path.append('./data_io/')
@@ -41,6 +44,7 @@ Project Info
 """
 site_id = 'kiuic'
 version = '001'
+crs = ccrs.UTM('16N')
 path2alg = '../saved_models/'
 path2fig= '../figures/'
 path2data = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/'
@@ -85,7 +89,7 @@ figure_name = '%s%s_%s_agb_upscaled.png' % (path2fig,site_id,version)
 fig1,axis = mplt.plot_xarray(agb, figure_name = figure_name,vmin=0,vmax=300,
                     add_colorbar=True,
                     cbar_kwargs={'label': 'AGB$_{def}$ / Mg ha$^{-1}$',
-                    'orientation':'horizontal'})
+                    'orientation':'horizontal'}, subplot_kws = {'projection':crs})
 
 outfile_prefix = '%s%s_%s_rf_agb_upscaled' % (path2output,site_id,version)
 io.write_xarray_to_GeoTiff(agb,outfile_prefix)
