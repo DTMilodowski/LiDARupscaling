@@ -43,7 +43,7 @@ import map_plots as mplt
 Project Info
 """
 site_id = 'kiuic'
-version = '001'
+version = '002'
 crs = ccrs.UTM('16N')
 path2alg = '../saved_models/'
 path2fig= '../figures/'
@@ -86,10 +86,10 @@ PART B: PLOT UPSCALED AGB ESTIMATE AND WRITE TO GEOTIFF
 #-------------------------------------------------------------------------------
 """
 figure_name = '%s%s_%s_agb_upscaled.png' % (path2fig,site_id,version)
-fig1,axis = mplt.plot_xarray(agb, figure_name = figure_name,vmin=0,vmax=300,
+fig1,axis = mplt.plot_xarray(agb, figure_name = figure_name,vmin=0,vmax=250,
                     add_colorbar=True,
                     cbar_kwargs={'label': 'AGB$_{def}$ / Mg ha$^{-1}$',
-                    'orientation':'horizontal'}, subplot_kws = {'projection':crs})
+                    'orientation':'horizontal'}, subplot_kw = {'projection':crs})
 
 outfile_prefix = '%s%s_%s_rf_agb_upscaled' % (path2output,site_id,version)
 io.write_xarray_to_GeoTiff(agb,outfile_prefix)
