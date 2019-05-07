@@ -187,16 +187,27 @@ def load_predictors(site_id = 'kiuic', path2data = "/exports/csce/datastore/geos
     path2sentinel = path2data+'/sentinel/processed/'
 
     # Load the sentinel data
+    sentinel_files = sorted(glob.glob('%s%s*tif' % (path2sentinel,site_id)))
     nodata=[]
     labels = []
-    for ff in sorted(glob.glob('%s%s*tif' % (path2sentinel,site_id))):
+    rows,cols = rasterio.open(sentinel_files[0]).shape
+    for ff in sentinel_files:
         nodata.append(rasterio.open(ff).nodatavals[0])
         labels.append(ff.split('/')[-1].split('.')[0])
 
-    sentinel = xr.concat([xr.open_rasterio(f) for f in sorted(glob.glob('%s%s*tif' % (path2sentinel,site_id)))],dim='band')
+    # Need a workaround as xr.concat is not behaving itself
+    """
+    sentinel = xr.concat([xr.open_rasterio(f) for f in sentinel_files],dim='band')
     mask = sentinel[0].values!=nodata[0]
     for ii in range(sentinel.shape[0]):
         mask = mask & (sentinel[ii].values!=nodata[ii])
+    """
+    sentinel = np.zeros((len(sentinel_files),rows,cols))
+    mask = np.ones((rows,cols),dtype='bool')
+    for ii,ff in enumerate(sentinel_files):
+        sentinel[ii] = xr.open_rasterio(ff).values
+        mask = mask & (sentinel[ii]!=nodata[ii])
+        mask = mask & (sentinel[ii]>-3*10**38)
     print('Loaded Sentinel-2 data')
 
     # also load the LiDAR data to check we only keep pixels with AGB estimates
@@ -215,9 +226,13 @@ def load_predictors(site_id = 'kiuic', path2data = "/exports/csce/datastore/geos
 
     #iterate over variables to create the large array with data
     counter = 0
-    #first wc2
+    """
     for vv in sentinel:
         predictors[:,counter] = vv.values[mask]
+        counter += 1
+    """
+    for vv in range(0,sentinel.shape[0]):
+        predictors[:,counter] = sentinel[vv][mask]
         counter += 1
 
     target = agb[0]#[mask]
