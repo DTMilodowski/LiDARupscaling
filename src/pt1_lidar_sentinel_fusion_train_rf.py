@@ -49,7 +49,7 @@ import general_plots as gplt
 Project Info
 """
 site_id = 'kiuic'
-version = '001'
+version = '002'
 path2alg = '../saved_models/'
 if(os.path.isdir(path2alg)==False):
     os.mkdir(path2alg)
@@ -69,6 +69,9 @@ print('Loading data')
 # Load predictors & target
 predictors,target,landmask,labels=io.load_predictors()
 
+# Custom mask
+target[0:800,2600:2728] = np.nan
+target[4000:,:2000] = np.nan
 # Keep only areas for which we have biomass estimates
 mask = np.isfinite(target[landmask])
 X = predictors[mask,:]
