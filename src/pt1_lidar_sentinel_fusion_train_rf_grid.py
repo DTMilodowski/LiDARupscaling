@@ -49,7 +49,7 @@ import general_plots as gplt
 Project Info
 """
 site_id = 'kiuic'
-version = '002'
+version = '003'
 path2alg = '../saved_models/'
 if(os.path.isdir(path2alg)==False):
     os.mkdir(path2alg)
@@ -91,16 +91,16 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,
                                                 test_size=0.25, random_state=29)
 
 #define the parameters for the gridsearch
-param_grid = {  "bootstrap"=True,
-                "max_depth"=None,            # ***maximum number of branching levels within each tree
-                "max_features"=np.linspace(.35,.7,8),       # ***the maximum number of variables used in a given tree
-                "min_samples_leaf"=np.linspace(1,10,5,dtype='i')},       # ***The minimum number of samples required to be at a leaf node
-                "min_samples_split"=20,       # ***The minimum number of samples required to split an internal node
-                "n_estimators"=100,          # ***Number of trees in the random forest
+param_grid = {  "bootstrap":[True],
+                "max_depth":[None],            # ***maximum number of branching levels within each tree
+                "max_features":np.linspace(.35,.7,8),       # ***the maximum number of variables used in a given tree
+                "min_samples_leaf":np.linspace(1,10,5,dtype='i')},       # ***The minimum number of samples required to be at a leaf node
+                "min_samples_split":[20],       # ***The minimum number of samples required to split an internal node
+                "n_estimators":[100],          # ***Number of trees in the random forest
                 }
 #create the random forest object with predefined parameters
 rf = RandomForestRegressor(n_jobs=20,random_state=26,
-                            n_estimators = 1000,bootstrap=True)
+                            n_estimators = 100,bootstrap=True)
 
 #perform a grid search on hyper parameters using training subset of data
 rf_grid = GridSearchCV(estimator=rf,param_grid=param_grid,cv=3,
