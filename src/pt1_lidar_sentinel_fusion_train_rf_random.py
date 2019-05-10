@@ -92,7 +92,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,
 #define the parameters for the gridsearch
 param_grid = {  "bootstrap":[True],
                 "max_depth":list(np.linspace(5,100,20,dtype='i'))+[None],   # ***maximum number of branching levels within each tree
-                "max_features":np.linspace(.1,1.,10)+['auto'],              # ***the maximum number of variables used in a given tree
+                "max_features":list(np.linspace(.1,1.,10))+['auto'],              # ***the maximum number of variables used in a given tree
                 "min_samples_leaf":np.linspace(1,50,10,dtype='i'),          # ***The minimum number of samples required to be at a leaf node
                 "min_samples_split":np.linspace(1,50,10,dtype='i'),         # ***The minimum number of samples required to split an internal node
                 "n_estimators":np.linspace(100,1500,10,dtype='i'),          # ***Number of trees in the random forest
