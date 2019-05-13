@@ -27,7 +27,7 @@ import os
 
 # Import some parts of the scikit-learn library
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.externals import joblib
@@ -101,7 +101,7 @@ param_grid = {  "bootstrap":[True],
 rf = RandomForestRegressor(n_jobs=20,random_state=26,bootstrap=True)
 
 #perform a randomized search on hyper parameters using training subset of data
-rf_random = RandomizedSearchCV(estimator=rf,param_distributions=random_grid,cv=3,
+rf_random = RandomizedSearchCV(estimator=rf,param_distributions=param_grid,cv=3,
                             verbose = 3,scoring = 'neg_mean_squared_error',
                             random_state=29, n_iter=100, n_jobs=1)
 
