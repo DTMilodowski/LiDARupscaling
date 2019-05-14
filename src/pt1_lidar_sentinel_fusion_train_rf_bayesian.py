@@ -109,10 +109,10 @@ param_space = { "max_depth":hp.choice("max_depth", max_depth_range),            
                 "min_samples_leaf":hp.choice("min_samples_leaf",min_samples_leaf_range),    # ***The minimum number of samples required to be at a leaf node
                 "min_samples_split":hp.choice("min_samples_split",min_samples_split_range),  # ***The minimum number of samples required to split an internal node
                 "n_estimators":hp.choice("n_estimators",n_estimators_range),           # ***Number of trees in the random forest
-                "criterion":hp.choice('criterion', ["mse"]),                      # criterion used for to construct forest
-                "bootstrap":hp.choice('bootstrap', [True]),
-                "n_jobs":hp.choice("n_jobs",[20]),
-                "random_state": hp.choice("random_state",29)
+                "criterion":"mse",                      # criterion used for to construct forest
+                "bootstrap":True,
+                "n_jobs":20,
+                "random_state":29
                 }
 
 # define a function to quantify the objective function
