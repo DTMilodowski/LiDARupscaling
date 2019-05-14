@@ -104,23 +104,26 @@ min_samples_leaf_range = range(1,100)
 min_samples_split_range = range(2,500)
 n_estimators_range = range(50,1200)
 
+rf = RandomForestRegressor(criterion="mse",bootstrap=True,n_jobs=20,random_state=29)
 param_space = { "max_depth":hp.choice("max_depth", max_depth_range),              # ***maximum number of branching levels within each tree
                 "max_features":hp.choice("max_features",max_features_range),      # ***the maximum number of variables used in a given tree
                 "min_samples_leaf":hp.choice("min_samples_leaf",min_samples_leaf_range),    # ***The minimum number of samples required to be at a leaf node
                 "min_samples_split":hp.choice("min_samples_split",min_samples_split_range),  # ***The minimum number of samples required to split an internal node
-                "n_estimators":hp.choice("n_estimators",n_estimators_range),           # ***Number of trees in the random forest
-                "criterion":"mse",                      # criterion used for to construct forest
-                "bootstrap":True,
-                "n_jobs":20,
-                "random_state":29
+                "n_estimators":hp.choice("n_estimators",n_estimators_range)           # ***Number of trees in the random forest
                 }
 
+                #"criterion":"mse",                      # criterion used for to construct forest
+                #"bootstrap":True,
+                #"n_jobs":20,
+                #"random_state":29
+                #}
+                
 # define a function to quantify the objective function
 best = 0
 def f(params):
     global best
     rf = RandomForestRegressor(**params)
-    acc = cross_val_score(clf, X_train, y_train, cv=3).mean()
+    acc = cross_val_score(rf, X_train, y_train, cv=3).mean()
     if acc > best:
         best = acc
         print('new best: ', best, params)
