@@ -91,11 +91,11 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,
 
 #define the parameters for the gridsearch
 param_grid = {  "bootstrap":[True],
-                "max_depth":list(np.linspace(5,100,20,dtype='i'))+[None],   # ***maximum number of branching levels within each tree
+                "max_depth":list(np.linspace(5,100,10,dtype='i'))+[None],   # ***maximum number of branching levels within each tree
                 "max_features":list(np.linspace(.1,1.,10))+['auto'],              # ***the maximum number of variables used in a given tree
-                "min_samples_leaf":np.linspace(1,50,10,dtype='i'),          # ***The minimum number of samples required to be at a leaf node
-                "min_samples_split":np.linspace(1,50,10,dtype='i'),         # ***The minimum number of samples required to split an internal node
-                "n_estimators":np.linspace(100,1500,10,dtype='i'),          # ***Number of trees in the random forest
+                "min_samples_leaf":np.linspace(1,100,10,dtype='i'),          # ***The minimum number of samples required to be at a leaf node
+                "min_samples_split":np.linspace(2,200,20,dtype='i'),         # ***The minimum number of samples required to split an internal node
+                "n_estimators":np.logspace(50,1500,100,dtype='i'),          # ***Number of trees in the random forest
                 }
 #create the random forest object with predefined parameters
 rf = RandomForestRegressor(n_jobs=20,random_state=26,bootstrap=True)
@@ -106,6 +106,8 @@ rf_random = RandomizedSearchCV(estimator=rf,param_distributions=param_grid,cv=3,
                             random_state=29, n_iter=100, n_jobs=1)
 
 rf_random.fit(X_train,y_train)
+# Save random forest model for future use
+joblib.dump(rf_random,'%s%s_%s_rf_sentinel_lidar_agb_random.pkl' % (path2alg,site_id,version))
 
 
 # create a pandas dataframe storing parameters and results of the cv
@@ -134,6 +136,3 @@ print("Validation R^2 = %.02f" % val_score)
 # Plot cal-val
 fig1,axes = gplt.plot_cal_val_agb(y_train,y_train_rf,y_test,y_test_rf)
 fig1.savefig('%s%s_%s_cal_val.png' % (path2fig,site_id,version))
-
-# Save random forest model for future use
-joblib.dump(rf_random,'%s%s_%s_rf_sentinel_lidar_agb_random.pkl' % (path2alg,site_id,version))
