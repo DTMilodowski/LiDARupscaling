@@ -39,7 +39,8 @@ from sklearn.externals import joblib
 import eli5
 from eli5.sklearn import PermutationImportance
 
-from hyperopt import tpe, Trials, fmin, hp, STATUS_OK
+from hyperopt import tpe, Trials, fmin, hp, STATUS_OK,space_eval
+from functools import partial
 
 # Import custom libaries
 
@@ -62,6 +63,8 @@ if(os.path.isdir(path2alg)==False):
 path2fig= '../figures/'
 if(os.path.isdir(path2fig)==False):
     os.mkdir(path2fig)
+
+training_sample_size = 200000
 
 """
 #===============================================================================
@@ -86,51 +89,72 @@ y = target[landmask][mask]
 
 """
 #===============================================================================
-PART B: CAL-VAL USING RANDOMISED SEARCH RF HYPERPARAMETER OPTIMISATION
+PART B: CAL-VAL USING RANDOMISED SEARCH THEN BAYESIAN HYPERPARAMETER OPTIMISATION
 Cal-val
 Cal-val figures
 #-------------------------------------------------------------------------------
 """
-print('Calibration/validation')
+print('Hyperparameter optimisation')
 #split train and test subset, specifying random seed for reproducability
-X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,
-                                                test_size=0.25, random_state=29)
-
+# due to processing limitations, we use only 500,000 in the initial
+# hyperparameter optimisation
+X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,test_size=0.25,random_state=29)
 
 #define the parameters for the gridsearch
-max_depth_range = range(1,100)
-max_features_range = range(1,n_predictors+1)
-min_samples_leaf_range = range(1,100)
+max_depth_range = range(20,500)
+max_features_range = range(50,n_predictors+1)
+min_samples_leaf_range = range(1,50)
 min_samples_split_range = range(2,500)
-n_estimators_range = range(50,1200)
+n_estimators_range = range(10,100)
 
-rf = RandomForestRegressor(criterion="mse",bootstrap=True,n_jobs=20,random_state=29)
-param_space = { "max_depth":hp.choice("max_depth", max_depth_range),              # ***maximum number of branching levels within each tree
-                "max_features":hp.choice("max_features",max_features_range),      # ***the maximum number of variables used in a given tree
-                "min_samples_leaf":hp.choice("min_samples_leaf",min_samples_leaf_range),    # ***The minimum number of samples required to be at a leaf node
-                "min_samples_split":hp.choice("min_samples_split",min_samples_split_range),  # ***The minimum number of samples required to split an internal node
-                "n_estimators":hp.choice("n_estimators",n_estimators_range)           # ***Number of trees in the random forest
+rf = RandomForestRegressor(criterion="mse",bootstrap=True,n_jobs=-1)
+param_space = { "max_depth":int(np.round(np.random.normal(0,1)))+hp.choice("max_depth", max_depth_range),              # ***maximum number of branching levels within each tree
+                "max_features":int(np.round(np.random.normal(0,1)))+hp.choice("max_features",max_features_range),      # ***the maximum number of variables used in a given tree
+                "min_samples_leaf":int(np.round(np.random.normal(0,1)))+hp.choice("min_samples_leaf",min_samples_leaf_range),    # ***The minimum number of samples required to be at a leaf node
+                "min_samples_split":int(np.round(np.random.normal(0,1)))+hp.choice("min_samples_split",min_samples_split_range),  # ***The minimum number of samples required to split an internal node
+                "n_estimators":int(np.round(np.random.normal(0,1)))+hp.choice("n_estimators",n_estimators_range),          # ***Number of trees in the random forest
+                "n_jobs":hp.choice("n_jobs",[20,20])
                 }
 
-                #"criterion":"mse",                      # criterion used for to construct forest
-                #"bootstrap":True,
-                #"n_jobs":20,
-                #"random_state":29
-                #}
-
 # define a function to quantify the objective function
-best = 0
+best = -np.inf
 def f(params):
     global best
+    # print starting point
+    if np.isfinite(best)==False:
+        print('starting point:', params)
+
+    # for second and later iterations, check this parameter set hasn't been used
+    # before
+    if len(trials.trials)>1:
+        for x in trials.trials[:-1]:
+            space_point_index = dict([(key,value[0]) for key,value in x['misc']['vals'].items() if len(value)>0])
+            if params == space_eval(space,space_point_index):
+                loss = x['result']['loss']
+                return {'loss': loss, 'status': STATUS_FAIL}
+
+    # otherwise run the cross validation for this parameter set
+    # - subsample from training set for this iteration
+    X_iter, X_temp, y_iter, y_temp = train_test_split(X, y, train_size=training_sample_size,test_size=0,random_state=29)
+    # - set up random forest regressor
     rf = RandomForestRegressor(**params)
-    acc = cross_val_score(rf, X_train, y_train, cv=3).mean()
-    if acc > best:
-        best = acc
-        print('new best: ', best, params)
-    return {'loss': -acc, 'status': STATUS_OK}
+    # - apply cross validation procedure
+    neg_mse = cross_val_score(rf, X_iter, y_iter, cv=4, scoring = 'neg_mean_squared_error').mean()
+    # - if error reduced, then update best model accordingly
+    if neg_mse > best:
+        best = neg_mse
+        print('new best rmse: ', -best, params)
+    return {'loss': neg_mse, 'status': STATUS_OK}
 
 trials=Trials()
-best = fmin(f, param_space, algo=tpe.suggest, max_evals=200, trials=trials)
+# Set algoritm parameters
+# - TPE
+# - randomised search used to initialise (n_startup_jobs iterations)
+# - percentage of hyperparameter combos identified as "good" (gamma)
+# - number of sampled candidates to calculate expected improvement (n_EI_candidates)
+algorithm = partial(tpe.suggest, n_startup_jobs=50, gamma=0.25, n_EI_candidates=24)
+
+best = fmin(f, param_space, algo=algorithm, max_evals=120, trials=trials)
 print('best:')
 print(best)
 
@@ -175,7 +199,7 @@ fig1,axes = gplt.plot_cal_val_agb(y_train,y_train_rf,y_test,y_test_rf)
 fig1.savefig('%s%s_%s_cal_val.png' % (path2fig,site_id,version))
 
 # plot summary of optimisation runs
-parameters = ['n_estimators', 'max_depth', 'max_features', 'min_samples', 'min_samples_split']
+parameters = ['n_estimators', 'max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split']
 fig2, axes = plt.subplots(nrows=2, ncols=3, figsize=(15,10))
 cmap = plt.cm.jet
 for i, val in enumerate(parameters):
@@ -183,6 +207,6 @@ for i, val in enumerate(parameters):
     ys = [-t['result']['loss'] for t in trials.trials]
     #xs, ys = zip(\*sorted(zip(xs, ys)))
     ys = np.array(ys)
-    axes[i/3,i%3].scatter(xs, ys, s=20, linewidth=0.01, alpha=0.5, c=cmap(float(i)/len(parameters)))
-    axes[i/3,i%3].set_title(val)
+    axes[i//3,i%3].scatter(xs, ys, s=20, linewidth=0.01, alpha=0.5, c=cmap(float(i)/len(parameters)))
+    axes[i//3,i%3].set_title(val)
 fig2.savefig('%s%s_%s_hyperpar_search.png' % (path2fig,site_id,version))
