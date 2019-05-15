@@ -108,11 +108,11 @@ min_samples_split_range = range(2,500)
 n_estimators_range = range(10,100)
 
 rf = RandomForestRegressor(criterion="mse",bootstrap=True,n_jobs=-1)
-param_space = { "max_depth":int(np.round(np.random.normal(0,1)))+hp.choice("max_depth", max_depth_range),              # ***maximum number of branching levels within each tree
-                "max_features":int(np.round(np.random.normal(0,1)))+hp.choice("max_features",max_features_range),      # ***the maximum number of variables used in a given tree
-                "min_samples_leaf":int(np.round(np.random.normal(0,1)))+hp.choice("min_samples_leaf",min_samples_leaf_range),    # ***The minimum number of samples required to be at a leaf node
-                "min_samples_split":int(np.round(np.random.normal(0,1)))+hp.choice("min_samples_split",min_samples_split_range),  # ***The minimum number of samples required to split an internal node
-                "n_estimators":int(np.round(np.random.normal(0,1)))+hp.choice("n_estimators",n_estimators_range),          # ***Number of trees in the random forest
+param_space = { "max_depth":hp.choice("max_depth", max_depth_range),              # ***maximum number of branching levels within each tree
+                "max_features":hp.choice("max_features",max_features_range),      # ***the maximum number of variables used in a given tree
+                "min_samples_leaf":hp.choice("min_samples_leaf",min_samples_leaf_range),    # ***The minimum number of samples required to be at a leaf node
+                "min_samples_split":hp.choice("min_samples_split",min_samples_split_range),  # ***The minimum number of samples required to split an internal node
+                "n_estimators":hp.choice("n_estimators",n_estimators_range),          # ***Number of trees in the random forest
                 "n_jobs":hp.choice("n_jobs",[20,20])
                 }
 
@@ -126,12 +126,12 @@ def f(params):
 
     # for second and later iterations, check this parameter set hasn't been used
     # before
-    if len(trials.trials)>1:
-        for x in trials.trials[:-1]:
-            space_point_index = dict([(key,value[0]) for key,value in x['misc']['vals'].items() if len(value)>0])
-            if params == space_eval(space,space_point_index):
-                loss = x['result']['loss']
-                return {'loss': loss, 'status': STATUS_FAIL}
+    #if len(trials.trials)>1:
+    #    for x in trials.trials[:-1]:
+    #        space_point_index = dict([(key,value[0]) for key,value in x['misc']['vals'].items() if len(value)>0])
+    #        if params == space_eval(space,space_point_index):
+    #            loss = x['result']['loss']
+    #            return {'loss': loss, 'status': STATUS_FAIL}
 
     # otherwise run the cross validation for this parameter set
     # - subsample from training set for this iteration
