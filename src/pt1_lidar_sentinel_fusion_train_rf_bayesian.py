@@ -42,6 +42,8 @@ from eli5.sklearn import PermutationImportance
 from hyperopt import tpe, Trials, fmin, hp, STATUS_OK,space_eval
 from functools import partial
 
+import pickle
+
 # Import custom libaries
 
 import sys
@@ -157,6 +159,11 @@ algorithm = partial(tpe.suggest, n_startup_jobs=50, gamma=0.25, n_EI_candidates=
 best = fmin(f, param_space, algo=algorithm, max_evals=120, trials=trials)
 print('best:')
 print(best)
+
+# save trials for future reference
+pickle.dump(trials, open('%s%s_%s_rf_sentinel_lidar_agb_trials.pkl' % (path2alg,site_id,version), "wb"))
+# open with:
+# trials = pickle.load(open("myfile.pkl", "rb"))
 
 # plot summary of optimisation runs
 parameters = ['n_estimators', 'max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split']
