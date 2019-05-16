@@ -139,12 +139,12 @@ def f(params):
     # - set up random forest regressor
     rf = RandomForestRegressor(**params)
     # - apply cross validation procedure
-    neg_mse = cross_val_score(rf, X_iter, y_iter, cv=4, scoring = 'neg_mean_squared_error').mean()
+    score = cross_val_score(rf, X_iter, y_iter, cv=4).mean()
     # - if error reduced, then update best model accordingly
-    if neg_mse > best:
-        best = neg_mse
-        print('new best rmse: ', -best, params)
-    return {'loss': neg_mse, 'status': STATUS_OK}
+    if score > best:
+        best = score
+        print('new best r^2: ', -best, params)
+    return {'loss': -score, 'status': STATUS_OK}
 
 trials=Trials()
 # Set algoritm parameters
@@ -152,12 +152,26 @@ trials=Trials()
 # - randomised search used to initialise (n_startup_jobs iterations)
 # - percentage of hyperparameter combos identified as "good" (gamma)
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
-algorithm = partial(tpe.suggest, n_startup_jobs=50, gamma=0.25, n_EI_candidates=24)
+algorithm = partial(tpe.suggest, n_startup_jobs=50, gamma=0.25, n_EI_candidates=50)
 
 best = fmin(f, param_space, algo=algorithm, max_evals=120, trials=trials)
 print('best:')
 print(best)
 
+# plot summary of optimisation runs
+parameters = ['n_estimators', 'max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split']
+fig2, axes = plt.subplots(nrows=2, ncols=3, figsize=(15,10))
+cmap = plt.cm.jet
+for i, val in enumerate(parameters):
+    xs = np.array([t['misc']['vals'][val] for t in trials.trials]).ravel()
+    ys = [-t['result']['loss'] for t in trials.trials]
+    #xs, ys = zip(\*sorted(zip(xs, ys)))
+    ys = np.array(ys)
+    axes[i//3,i%3].scatter(xs, ys, s=20, linewidth=0.01, alpha=0.5, c=cmap(float(i)/len(parameters)))
+    axes[i//3,i%3].set_title(val)
+fig2.savefig('%s%s_%s_hyperpar_search.png' % (path2fig,site_id,version))
+
+# Take best hyperparameter set and apply cal-val on full training set
 max_depth_best = np.array(max_depth_range)[best["max_depth"]]
 max_features_best = np.array(max_features_range)[best["max_depth"]]
 min_samples_leaf_best = np.array(min_samples_leaf_range)[best["min_samples_leaf"]]
@@ -197,16 +211,3 @@ print("Validation R^2 = %.02f" % val_score)
 # Plot cal-val
 fig1,axes = gplt.plot_cal_val_agb(y_train,y_train_rf,y_test,y_test_rf)
 fig1.savefig('%s%s_%s_cal_val.png' % (path2fig,site_id,version))
-
-# plot summary of optimisation runs
-parameters = ['n_estimators', 'max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split']
-fig2, axes = plt.subplots(nrows=2, ncols=3, figsize=(15,10))
-cmap = plt.cm.jet
-for i, val in enumerate(parameters):
-    xs = np.array([t['misc']['vals'][val] for t in trials.trials]).ravel()
-    ys = [-t['result']['loss'] for t in trials.trials]
-    #xs, ys = zip(\*sorted(zip(xs, ys)))
-    ys = np.array(ys)
-    axes[i//3,i%3].scatter(xs, ys, s=20, linewidth=0.01, alpha=0.5, c=cmap(float(i)/len(parameters)))
-    axes[i//3,i%3].set_title(val)
-fig2.savefig('%s%s_%s_hyperpar_search.png' % (path2fig,site_id,version))
