@@ -66,7 +66,7 @@ path2fig= '../figures/'
 if(os.path.isdir(path2fig)==False):
     os.mkdir(path2fig)
 
-training_sample_size = 200000
+training_sample_size = 250000
 
 """
 #===============================================================================
@@ -98,9 +98,9 @@ Cal-val figures
 """
 print('Hyperparameter optimisation')
 #split train and test subset, specifying random seed for reproducability
-# due to processing limitations, we use only 500,000 in the initial
+# due to processing limitations, we use only 200000 in the initial
 # hyperparameter optimisation
-X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,test_size=0.25,random_state=29)
+X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,test_size=0.25,random_state=23)
 
 #define the parameters for the gridsearch
 max_depth_range = range(20,500)
@@ -137,11 +137,11 @@ def f(params):
 
     # otherwise run the cross validation for this parameter set
     # - subsample from training set for this iteration
-    X_iter, X_temp, y_iter, y_temp = train_test_split(X, y, train_size=training_sample_size,test_size=0,random_state=29)
+    X_iter, X_temp, y_iter, y_temp = train_test_split(X, y, train_size=training_sample_size,test_size=0,random_state=9)
     # - set up random forest regressor
     rf = RandomForestRegressor(**params)
     # - apply cross validation procedure
-    score = cross_val_score(rf, X_iter, y_iter, cv=4).mean()
+    score = cross_val_score(rf, X_iter, y_iter, cv=5).mean()
     # - if error reduced, then update best model accordingly
     if score > best:
         best = score
@@ -154,18 +154,20 @@ trials=Trials()
 # - randomised search used to initialise (n_startup_jobs iterations)
 # - percentage of hyperparameter combos identified as "good" (gamma)
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
-algorithm = partial(tpe.suggest, n_startup_jobs=50, gamma=0.25, n_EI_candidates=50)
+algorithm = partial(tpe.suggest, n_startup_jobs=50, gamma=0.25, n_EI_candidates=40)
 
-best = fmin(f, param_space, algo=algorithm, max_evals=120, trials=trials)
+best = fmin(f, param_space, algo=algorithm, max_evals=150, trials=trials)
 print('best:')
 print(best)
 
 # save trials for future reference
-pickle.dump(trials, open('%s%s_%s_rf_sentinel_lidar_agb_trials.pkl' % (path2alg,site_id,version), "wb"))
+print('saving trials to file for future reference')
+pickle.dump(trials, open('%s%s_%s_rf_sentinel_lidar_agb_trials.p' % (path2alg,site_id,version), "wb"))
 # open with:
-# trials = pickle.load(open("myfile.pkl", "rb"))
+# trials = pickle.load(open('%s%s_%s_rf_sentinel_lidar_agb_trials.p' % (path2alg,site_id,version), "rb"))
 
 # plot summary of optimisation runs
+print('Basic plot summarising optimisation results')
 parameters = ['n_estimators', 'max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split']
 fig2, axes = plt.subplots(nrows=2, ncols=3, figsize=(15,10))
 cmap = plt.cm.jet
@@ -179,6 +181,7 @@ for i, val in enumerate(parameters):
 fig2.savefig('%s%s_%s_hyperpar_search.png' % (path2fig,site_id,version))
 
 # Take best hyperparameter set and apply cal-val on full training set
+print('Applying cal-val to full training set and withheld validation set')
 max_depth_best = np.array(max_depth_range)[best["max_depth"]]
 max_features_best = np.array(max_features_range)[best["max_depth"]]
 min_samples_leaf_best = np.array(min_samples_leaf_range)[best["min_samples_leaf"]]
