@@ -104,7 +104,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,test_s
 
 #define the parameters for the gridsearch
 max_depth_range = range(20,500)
-max_features_range = range(int(n_perdictors/5),n_predictors+1)
+max_features_range = range(int(n_predictors/5),n_predictors+1)
 min_samples_leaf_range = range(1,50)
 min_samples_split_range = range(2,200)
 #n_estimators_range = range(10,100)
