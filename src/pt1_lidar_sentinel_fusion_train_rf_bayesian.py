@@ -156,7 +156,7 @@ trials=Trials()
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
 algorithm = partial(tpe.suggest, n_startup_jobs=30, gamma=0.25, n_EI_candidates=24)
 
-best = fmin(f, param_space, algo=algorithm, max_evals=150, trials=trials)
+best = fmin(f, param_space, algo=algorithm, max_evals=130, trials=trials)
 print('best:')
 print(best)
 
@@ -182,11 +182,11 @@ fig2.savefig('%s%s_%s_hyperpar_search.png' % (path2fig,site_id,version))
 
 # Take best hyperparameter set and apply cal-val on full training set
 print('Applying cal-val to full training set and withheld validation set')
-scores = np.zeros(150)
+scores = np.zeros(130)
 for ii,tt in enumerate(trials.trials):
      scores[ii] = tt['result']['loss']
 idx = np.argsort(scores)[0]
-best_params = trials.trials[119] ['misc']['vals']
+best_params = trials.trials[idx] ['misc']['vals']
 
 max_depth_best = np.array(max_depth_range)[best_params["max_depth"][0]]
 max_features_best = np.array(max_features_range)[best_params["max_features"][0]]
