@@ -156,7 +156,7 @@ trials=Trials()
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
 algorithm = partial(tpe.suggest, n_startup_jobs=30, gamma=0.25, n_EI_candidates=24)
 
-best = fmin(f, param_space, algo=algorithm, max_evals=120, trials=trials)
+best = fmin(f, param_space, algo=algorithm, max_evals=150, trials=trials)
 print('best:')
 print(best)
 
