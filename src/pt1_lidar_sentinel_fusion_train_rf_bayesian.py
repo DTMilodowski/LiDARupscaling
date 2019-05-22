@@ -58,7 +58,7 @@ import general_plots as gplt
 Project Info
 """
 site_id = 'kiuic'
-version = '004'
+version = '005'
 path2alg = '../saved_models/'
 if(os.path.isdir(path2alg)==False):
     os.mkdir(path2alg)
@@ -104,17 +104,17 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,test_s
 
 #define the parameters for the gridsearch
 max_depth_range = range(20,500)
-max_features_range = range(50,n_predictors+1)
+max_features_range = range(int(n_perdictors/5),n_predictors+1)
 min_samples_leaf_range = range(1,50)
-min_samples_split_range = range(2,500)
-n_estimators_range = range(10,100)
+min_samples_split_range = range(2,200)
+#n_estimators_range = range(10,100)
 
 rf = RandomForestRegressor(criterion="mse",bootstrap=True,n_jobs=-1)
 param_space = { "max_depth":hp.choice("max_depth", max_depth_range),              # ***maximum number of branching levels within each tree
                 "max_features":hp.choice("max_features",max_features_range),      # ***the maximum number of variables used in a given tree
                 "min_samples_leaf":hp.choice("min_samples_leaf",min_samples_leaf_range),    # ***The minimum number of samples required to be at a leaf node
                 "min_samples_split":hp.choice("min_samples_split",min_samples_split_range),  # ***The minimum number of samples required to split an internal node
-                "n_estimators":hp.choice("n_estimators",n_estimators_range),          # ***Number of trees in the random forest
+                "n_estimators":hp.choice("n_estimators",[80,80]),          # ***Number of trees in the random forest
                 "n_jobs":hp.choice("n_jobs",[20,20])
                 }
 
@@ -154,9 +154,9 @@ trials=Trials()
 # - randomised search used to initialise (n_startup_jobs iterations)
 # - percentage of hyperparameter combos identified as "good" (gamma)
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
-algorithm = partial(tpe.suggest, n_startup_jobs=50, gamma=0.25, n_EI_candidates=40)
+algorithm = partial(tpe.suggest, n_startup_jobs=30, gamma=0.25, n_EI_candidates=24)
 
-best = fmin(f, param_space, algo=algorithm, max_evals=150, trials=trials)
+best = fmin(f, param_space, algo=algorithm, max_evals=120, trials=trials)
 print('best:')
 print(best)
 
@@ -182,11 +182,17 @@ fig2.savefig('%s%s_%s_hyperpar_search.png' % (path2fig,site_id,version))
 
 # Take best hyperparameter set and apply cal-val on full training set
 print('Applying cal-val to full training set and withheld validation set')
-max_depth_best = np.array(max_depth_range)[best["max_depth"]]
-max_features_best = np.array(max_features_range)[best["max_depth"]]
-min_samples_leaf_best = np.array(min_samples_leaf_range)[best["min_samples_leaf"]]
-min_samples_split_best = np.array(min_samples_split_range)[best["min_samples_split"]]
-n_estimators_best = np.array(n_estimators_range)[best["n_estimators"]]
+scores = np.zeros(150)
+for ii,tt in enumerate(trials.trials):
+     scores[ii] = tt['result']['loss']
+idx = np.argsort(scores)[0]
+best_params = trials.trials[119] ['misc']['vals']
+
+max_depth_best = np.array(max_depth_range)[best_params["max_depth"][0]]
+max_features_best = np.array(max_features_range)[best_params["max_features"][0]]
+min_samples_leaf_best = np.array(min_samples_leaf_range)[best_params["min_samples_leaf"][0]]
+min_samples_split_best = np.array(min_samples_split_range)[best_params["min_samples_split"][0]]
+n_estimators_best = np.array(n_estimators_range)[best_params["n_estimators"][0]]
 
 rf = RandomForestRegressor(bootstrap=True,
             criterion='mse',           # criteria used to choose split point at each node
@@ -203,10 +209,6 @@ rf = RandomForestRegressor(bootstrap=True,
             random_state=29,         # seed used by the random number generator
             )
 
-
-# Save random forest model for future use
-joblib.dump(rf_random,'%s%s_%s_rf_sentinel_lidar_agb_bayes_opt.pkl' % (path2alg,site_id,version))
-
 # fit the calibration sample
 rf.fit(X_train,y_train)
 y_train_rf = rf.predict(X_train)
@@ -217,6 +219,10 @@ print("Calibration R^2 = %.02f" % cal_score)
 y_test_rf = rf.predict(X_test)
 val_score = rf.score(X_test,y_test)
 print("Validation R^2 = %.02f" % val_score)
+
+
+# Save random forest model for future use
+joblib.dump(rf,'%s%s_%s_rf_sentinel_lidar_agb_bayes_opt.pkl' % (path2alg,site_id,version))
 
 # Plot cal-val
 fig1,axes = gplt.plot_cal_val_agb(y_train,y_train_rf,y_test,y_test_rf)
