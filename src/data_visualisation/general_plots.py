@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt     # plotting package
 import seaborn as sns               # another useful plotting package
 import pandas as pd
 from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.linear_model import LinearRegression
+from scipy.interpolate import interpn
 
 """
 Part 2: Random forests
@@ -51,20 +53,29 @@ def plot_test_data_with_regression_results(X1,y1,X2,y2,X3,y3,X_test,y1_test,y1_t
 
 # Figure 3, basic cal-val example
 def plot_cal_val(y_train,y_train_rf,y_test,y_test_rf,show=True):
-    calval_df = pd.DataFrame(data = {'val_obs': y_test,
-                                     'val_model': y_test_rf,
-                                     'cal_obs': y_train,
-                                     'cal_model': y_train_rf})
+
+    data_train , x_e, y_e = np.histogram2d( y_train, y_train_rf, bins = 50)
+    z_train = interpn( ( 0.5*(x_e[1:] + x_e[:-1]) , 0.5*(y_e[1:]+y_e[:-1]) ) , data_train , np.vstack([y_train,y_train_rf]).T , method = "splinef2d", bounds_error = False )
+    data_test , x_e, y_e = np.histogram2d( y_test, y_test_rf, bins = 50)
+    z_test = interpn( ( 0.5*(x_e[1:] + x_e[:-1]) , 0.5*(y_e[1:]+y_e[:-1]) ) , data_test , np.vstack([y_test,y_test_rf]).T , method = "splinef2d", bounds_error = False )
+    idx_train = z_train.argsort()
+    idx_test = z_test.argsort()
+    calval_df = pd.DataFrame(data = {'val_obs': y_test[idx_train],
+                                     'val_model': y_test_rf[idx_test],
+                                     'cal_obs': y_train[idx_train],
+                                     'cal_model': y_train_rf[idx_test],
+                                     'dens_cal':z_train[idx_train],
+                                     'dens_val':z_test[idx_test]})
 
     fig3,axes= plt.subplots(nrows=1,ncols=2,figsize=[8,4])
     sns.regplot(x='cal_obs',y='cal_model',data=calval_df,marker='+',
-                truncate=True,ci=None,ax=axes[0])
+                truncate=True,ci=None,ax=axes[0],scatter_kws={'hue':dens_cal,'legend':False})
     axes[0].annotate('calibration R$^2$ = %.02f\nRMSE = %.02f' %
                 (r2_score(y_train,y_train_rf),np.sqrt(mean_squared_error(y_train,y_train_rf))),
                 xy=(0.05,0.95), xycoords='axes fraction',backgroundcolor='none',
                 horizontalalignment='left', verticalalignment='top')
     sns.regplot(x='val_obs',y='val_model',data=calval_df,marker='+',
-                truncate=True,ci=None,ax=axes[1])
+                truncate=True,ci=None,ax=axes[1],scatter_kws={'hue':dens_val,'legend':False})
     axes[1].annotate('validation R$^2$ = %.02f\nRMSE = %.02f'
                 % (r2_score(y_test,y_test_rf),np.sqrt(mean_squared_error(y_test,y_test_rf))),
                 xy=(0.05,0.95), xycoords='axes fraction',backgroundcolor='none',
@@ -78,31 +89,49 @@ def plot_cal_val(y_train,y_train_rf,y_test,y_test_rf,show=True):
 
 # figure 4,cal_val with regression line
 def plot_cal_val_agb(y_train,y_train_rf,y_test,y_test_rf,show=True):
-    cal_df = pd.DataFrame(data = {'cal_obs': y_train,
-                                  'cal_model': y_train_rf})
-    val_df = pd.DataFrame(data = {'val_obs': y_test,
-                                  'val_model': y_test_rf})
 
+    data_train , x_e, y_e = np.histogram2d( y_train, y_train_rf, bins = 50)
+    z_train = interpn( ( 0.5*(x_e[1:] + x_e[:-1]) , 0.5*(y_e[1:]+y_e[:-1]) ) , data_train , np.vstack([y_train,y_train_rf]).T , method = "splinef2d", bounds_error = False )
+    data_test , x_e, y_e = np.histogram2d( y_test, y_test_rf, bins = 50)
+    z_test = interpn( ( 0.5*(x_e[1:] + x_e[:-1]) , 0.5*(y_e[1:]+y_e[:-1]) ) , data_test , np.vstack([y_test,y_test_rf]).T , method = "splinef2d", bounds_error = False )
+    idx_train = z_train.argsort()
+    idx_test = z_test.argsort()
+    cal_df = pd.DataFrame(data = {'cal_obs': y_train[idx_train],
+                                     'cal_model': y_train_rf[idx_train],
+                                     'cal_dens':z_train[idx_train],})
+    val_df = pd.DataFrame(data = {'val_obs': y_test[idx_test],
+                                     'val_model': y_test_rf[idx_test],
+                                     'val_dens':z_test[idx_test]})
+
+    cal_reg = LinearRegression().fit(y_train.reshape(-1, 1),y_train_rf)
+    val_reg = LinearRegression().fit(y_test.reshape(-1, 1),y_test_rf)
+
+
+    cmap = sns.light_palette('seagreen',as_cmap=True)
 
     fig4,axes= plt.subplots(nrows=1,ncols=2,figsize=[8,4])
-    sns.regplot(x='cal_obs',y='cal_model',data=cal_df,marker='.',
-                truncate=True,ci=None,ax=axes[0],
-                scatter_kws={'alpha':0.01,'edgecolor':'none'},
-                line_kws={'color':'k'})
+    sns.scatterplot(x='cal_obs',y='cal_model',data=cal_df,marker='.',
+                hue='cal_dens',palette=cmap,edgecolor='none',legend=False,ax=axes[0])
+    x_range = np.array([np.min(cal_df['cal_obs']),np.max(cal_df['cal_obs'])])
+    axes[0].plot(x_range,cal_reg.predict(x_range.reshape(-1, 1)),'-',color='black')
+    axes[0].plot(x_range,x_range,'--',color='black')
     axes[0].annotate('calibration R$^2$ = %.02f\nRMSE = %.02f' %
                 (r2_score(y_train,y_train_rf),np.sqrt(mean_squared_error(y_train,y_train_rf))),
                 xy=(0.05,0.95), xycoords='axes fraction',backgroundcolor='none',
                 horizontalalignment='left', verticalalignment='top')
-    sns.regplot(x='val_obs',y='val_model',data=val_df,marker='.',
-                truncate=True,ci=None,ax=axes[1],
-                scatter_kws={'alpha':0.01,'edgecolor':'none'},
-                line_kws={'color':'k'})
+    sns.scatterplot(x='val_obs',y='val_model',data=val_df,marker='.',
+                hue='val_dens',palette=cmap,edgecolor='none',legend=False,ax=axes[1])
+    x_range = np.array([np.min(val_df['val_obs']),np.max(val_df['val_obs'])])
+    axes[1].plot(x_range,val_reg.predict(x_range.reshape(-1, 1)),'-',color='black')
+    axes[1].plot(x_range,x_range,'--',color='black')
     axes[1].annotate('validation R$^2$ = %.02f\nRMSE = %.02f'
                 % (r2_score(y_test,y_test_rf),np.sqrt(mean_squared_error(y_test,y_test_rf))),
                 xy=(0.05,0.95), xycoords='axes fraction',backgroundcolor='none',
                 horizontalalignment='left', verticalalignment='top')
     axes[0].axis('equal')
     axes[1].axis('equal')
+    axes[0].set_xlim(0,np.max(cal_df['cal_obs']))
+    axes[1].set_xlim(0,np.max(cal_df['cal_obs']))
     fig4.tight_layout()
     if show:
         fig4.show()
