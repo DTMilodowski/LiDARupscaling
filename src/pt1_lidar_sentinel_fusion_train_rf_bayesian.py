@@ -40,6 +40,7 @@ import eli5
 from eli5.sklearn import PermutationImportance
 
 from hyperopt import tpe, Trials, fmin, hp, STATUS_OK,space_eval
+from hyperopt.pyll.base import scope
 from functools import partial
 
 import pickle
@@ -107,15 +108,15 @@ max_depth_range = range(20,500)
 max_features_range = range(int(n_predictors/5),n_predictors+1)
 min_samples_leaf_range = range(1,50)
 min_samples_split_range = range(2,200)
-#n_estimators_range = range(10,100)
+n_estimators_range = range(80,120)
 
 rf = RandomForestRegressor(criterion="mse",bootstrap=True,n_jobs=-1)
-param_space = { "max_depth":hp.choice("max_depth", max_depth_range),              # ***maximum number of branching levels within each tree
-                "max_features":hp.choice("max_features",max_features_range),      # ***the maximum number of variables used in a given tree
-                "min_samples_leaf":hp.choice("min_samples_leaf",min_samples_leaf_range),    # ***The minimum number of samples required to be at a leaf node
-                "min_samples_split":hp.choice("min_samples_split",min_samples_split_range),  # ***The minimum number of samples required to split an internal node
-                "n_estimators":hp.choice("n_estimators",[80,80]),          # ***Number of trees in the random forest
-                "n_jobs":hp.choice("n_jobs",[20,20])
+param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,500,1)),              # ***maximum number of branching levels within each tree
+                "max_features":scope.int(hp.quniform("max_features",int(n_predictors/5),n_predictors+1,1)),      # ***the maximum number of variables used in a given tree
+                "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,50,1)),    # ***The minimum number of samples required to be at a leaf node
+                "min_samples_split":scope.int(hp.quniform("min_samples_split",2,200,1)),  # ***The minimum number of samples required to split an internal node
+                "n_estimators":scope.int(hp.quniform("n_estimators",80,120,1)),          # ***Number of trees in the random forest
+                "n_jobs":hp.choice("n_jobs",[40,40])
                 }
 
 # define a function to quantify the objective function
