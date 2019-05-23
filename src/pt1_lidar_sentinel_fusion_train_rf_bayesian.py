@@ -59,7 +59,7 @@ import general_plots as gplt
 Project Info
 """
 site_id = 'kiuic'
-version = '005'
+version = '006'
 path2alg = '../saved_models/'
 if(os.path.isdir(path2alg)==False):
     os.mkdir(path2alg)
@@ -105,9 +105,10 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,test_s
 
 #define the parameters for the gridsearch
 max_depth_range = range(20,500)
-max_features_range = range(int(n_predictors/5),n_predictors+1)
+max_features_range = range(int(n_predictors/5),n_predictors)
 min_samples_leaf_range = range(1,50)
 min_samples_split_range = range(2,200)
+#min_impurity_decrease_range = range(0.0,0.2)
 n_estimators_range = range(80,120)
 
 rf = RandomForestRegressor(criterion="mse",bootstrap=True,n_jobs=-1)
@@ -116,11 +117,13 @@ param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,500,1)),       
                 "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,50,1)),    # ***The minimum number of samples required to be at a leaf node
                 "min_samples_split":scope.int(hp.quniform("min_samples_split",2,200,1)),  # ***The minimum number of samples required to split an internal node
                 "n_estimators":scope.int(hp.quniform("n_estimators",80,120,1)),          # ***Number of trees in the random forest
+                "min_impurity_decrease":hp.uniform("min_impurity_decrease",0.0,0.2),
                 "n_jobs":hp.choice("n_jobs",[40,40])
                 }
 
 # define a function to quantify the objective function
 best = -np.inf
+seed = 0
 def f(params):
     global best
     # print starting point
@@ -138,7 +141,10 @@ def f(params):
 
     # otherwise run the cross validation for this parameter set
     # - subsample from training set for this iteration
-    X_iter, X_temp, y_iter, y_temp = train_test_split(X, y, train_size=training_sample_size,test_size=0,random_state=9)
+    X_iter, X_temp, y_iter, y_temp = train_test_split(X, y,
+                                train_size=training_sample_size,test_size=0,
+                                random_state=seed)
+    seed+=1
     # - set up random forest regressor
     rf = RandomForestRegressor(**params)
     # - apply cross validation procedure
@@ -169,16 +175,16 @@ pickle.dump(trials, open('%s%s_%s_rf_sentinel_lidar_agb_trials.p' % (path2alg,si
 
 # plot summary of optimisation runs
 print('Basic plot summarising optimisation results')
-parameters = ['max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split']
-fig2, axes = plt.subplots(nrows=2, ncols=2, figsize=(10,10))
+parameters = ['n_estimators','max_depth', 'max_features', 'min_impurity_decrease','min_samples_leaf', 'min_samples_split']
+fig2, axes = plt.subplots(nrows=3, ncols=2, figsize=(8,12))
 cmap = plt.cm.jet
 for i, val in enumerate(parameters):
     xs = np.array([t['misc']['vals'][val] for t in trials.trials]).ravel()
     ys = [-t['result']['loss'] for t in trials.trials]
     #xs, ys = zip(\*sorted(zip(xs, ys)))
     ys = np.array(ys)
-    axes[i//2,i%2].scatter(xs, ys, s=20, linewidth=0.01, alpha=0.5, c=cmap(float(i)/len(parameters)))
-    axes[i//2,i%2].set_title(val)
+    axes[i//3,i%3].scatter(xs, ys, s=20, linewidth=0.01, alpha=0.5, c=cmap(float(i)/len(parameters)))
+    axes[i//3,i%3].set_title(val)
 fig2.savefig('%s%s_%s_hyperpar_search.png' % (path2fig,site_id,version))
 
 # Take best hyperparameter set and apply cal-val on full training set
