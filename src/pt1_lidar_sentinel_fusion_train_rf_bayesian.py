@@ -130,7 +130,7 @@ def f(params):
     # print starting point
     if np.isfinite(best)==False:
         print('starting point:', params)
-
+    """
     # Check that this parameter set has not been tried before - want to avoid
     # unnecessary computations
     if len(trials.trials)>1:
@@ -139,7 +139,7 @@ def f(params):
             if params == space_eval(space,space_point_idx):
                 loss = x['result']['loss']
                 return {'loss': loss, 'status': STATUS_FAIL}
-
+    """
     # run the cross validation for this parameter set
     # - subsample from training set for this iteration
     X_iter, X_temp, y_iter, y_temp = train_test_split(X, y,
@@ -191,7 +191,7 @@ for ii,tt in enumerate(trials.trials):
          trace[pp][ii] = tt['misc']['vals'][pp][0]
 
 df = pd.DataFrame(data=trace)
-
+"""
 fig2, axes = plt.subplots(nrows=3, ncols=2, figsize=(8,8))
 cmap = sns.dark_palette('seagreen',as_cmap=True)
 for i, val in enumerate(parameters):
@@ -199,15 +199,20 @@ for i, val in enumerate(parameters):
                 palette=cmap,edgecolor='none',legend=False,ax=axes[i//3,i%3])
     axes[i//3,i%3].set_xlabel(val)
     axes[i//3,i%3].set_ylabel('5-fold C-V score')
+"""
+fig2,axes = gplt.plot_hyperparameter_search_scores(df,parameters)
 fig2.savefig('%s%s_%s_hyperpar_search_score.png' % (path2fig,site_id,version))
 
 # Plot traces to see progression of hyperparameter selection
+"""
 fig3, axes = plt.subplots(nrows=3, ncols=2, figsize=(8,8))
 for i, val in enumerate(parameters):
     sns.scatterplot(x='iteration',y=val,data=df,marker='.',hue='score',
                 palette=cmap,edgecolor='none',legend=False,ax=axes[i//3,i%3])
     axes[i//3,i%3].axvline(spin_up,':',colour = '0.5')
     axes[i//3,i%3].set_title(val)
+"""
+fig3,axes = gplt.plot_hyperparameter_search_trace(df,parameters)
 fig3.savefig('%s%s_%s_hyperpar_search_trace.png' % (path2fig,site_id,version))
 
 

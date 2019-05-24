@@ -245,3 +245,29 @@ def add_partial_dependency_instance(ax,rf,X,variable_position=1,show=True,N_iter
         # predict with rf model
         y_i = rf.predict(X_i)
     return ax.plot(var_, y_i,'-',c='0.5',linewidth=0.5,alpha=0.8)
+
+"""
+# Summary plots for hyperparameter optimisation scheme
+"""
+# plot score vs. hyperparameter value for each hyperparameter tested
+# - df = dataframe with hyperparameters, score and iteration number
+# - parameters = list of hyperparameters to plot (max = 6)
+def plot_hyperparameter_search_scores(df,parameters:
+    fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(8,8))
+    cmap = sns.dark_palette('seagreen',as_cmap=True)
+    for i, val in enumerate(parameters):
+        sns.scatterplot(x=val,y='score',data=df,marker='.',hue='iteration',
+                    palette=cmap,edgecolor='none',legend=False,ax=axes[i//3,i%3])
+        axes[i//3,i%3].set_xlabel(val)
+        axes[i//3,i%3].set_ylabel('%i-fold C-V score' % k)
+    return fig,axes
+    
+# plot hyperparameter trace
+def plot_hyperparameter_search_trace(df,parameters):
+    fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(8,8))
+    for i, val in enumerate(parameters):
+        sns.scatterplot(x='iteration',y=val,data=df,marker='.',hue='score',
+                    palette=cmap,edgecolor='none',legend=False,ax=axes[i//3,i%3])
+        axes[i//3,i%3].axvline(spin_up,':',colour = '0.5')
+        axes[i//3,i%3].set_title(val)
+    return fig,axes
