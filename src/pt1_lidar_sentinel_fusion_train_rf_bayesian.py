@@ -39,7 +39,7 @@ from sklearn.externals import joblib
 import eli5
 from eli5.sklearn import PermutationImportance
 
-from hyperopt import tpe, Trials, fmin, hp, STATUS_OK,space_eval
+from hyperopt import tpe, Trials, fmin, hp, STATUS_OK, space_eval, STATUS_FAIL
 from hyperopt.pyll.base import scope
 from functools import partial
 
@@ -131,7 +131,16 @@ def f(params):
     if np.isfinite(best)==False:
         print('starting point:', params)
 
-    # otherwise run the cross validation for this parameter set
+    # Check that this parameter set has not been tried before - want to avoid
+    # unnecessary computations
+    if len(trials.trials)>1:
+        for x in trials.trials[:-1]:
+            space_point_idx = dict([(key,value[0]) for key,value in x['misc']['vals'].items() if len(value)>0])
+            if params == space_eval(space,space_point_idx):
+                loss = x['result']['loss']
+                return {'loss': loss, 'status': STATUS_FAIL}
+
+    # run the cross validation for this parameter set
     # - subsample from training set for this iteration
     X_iter, X_temp, y_iter, y_temp = train_test_split(X, y,
                                 train_size=training_sample_size,test_size=0,
