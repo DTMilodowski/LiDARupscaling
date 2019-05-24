@@ -118,7 +118,7 @@ param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,500,1)),       
                 "min_samples_split":scope.int(hp.quniform("min_samples_split",2,200,1)),  # ***The minimum number of samples required to split an internal node
                 "n_estimators":scope.int(hp.quniform("n_estimators",70,100,1)),          # ***Number of trees in the random forest
                 "min_impurity_decrease":hp.uniform("min_impurity_decrease",0.0,0.2),
-                "n_jobs":hp.choice("n_jobs",[40,40])
+                "n_jobs":hp.choice("n_jobs",[20,20])
                 }
 
 # define a function to quantify the objective function
@@ -130,15 +130,6 @@ def f(params):
     # print starting point
     if np.isfinite(best)==False:
         print('starting point:', params)
-
-    # for second and later iterations, check this parameter set hasn't been used
-    # before
-    #if len(trials.trials)>1:
-    #    for x in trials.trials[:-1]:
-    #        space_point_index = dict([(key,value[0]) for key,value in x['misc']['vals'].items() if len(value)>0])
-    #        if params == space_eval(space,space_point_index):
-    #            loss = x['result']['loss']
-    #            return {'loss': loss, 'status': STATUS_FAIL}
 
     # otherwise run the cross validation for this parameter set
     # - subsample from training set for this iteration
@@ -162,7 +153,8 @@ trials=Trials()
 # - randomised search used to initialise (n_startup_jobs iterations)
 # - percentage of hyperparameter combos identified as "good" (gamma)
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
-algorithm = partial(tpe.suggest, n_startup_jobs=40, gamma=0.25, n_EI_candidates=24)
+spin_up = 40
+algorithm = partial(tpe.suggest, n_startup_jobs=spin_up, gamma=0.25, n_EI_candidates=24)
 max_evals = 120
 best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
 print('best:')
@@ -205,6 +197,7 @@ fig3, axes = plt.subplots(nrows=3, ncols=2, figsize=(8,8))
 for i, val in enumerate(parameters):
     sns.scatterplot(x='iteration',y=val,data=df,marker='.',hue='score',
                 palette=cmap,edgecolor='none',legend=False,ax=axes[i//3,i%3])
+    axes[i//3,i%3].axvline(spin_up,':',colour = '0.5')
     axes[i//3,i%3].set_title(val)
 fig3.savefig('%s%s_%s_hyperpar_search_trace.png' % (path2fig,site_id,version))
 
@@ -229,7 +222,7 @@ rf = RandomForestRegressor(bootstrap=True,
             min_impurity_split=None,   # threshold impurity within an internal node before it will be split
             min_samples_leaf=trace['min_samples_leaf'][idx],       # ***The minimum number of samples required to be at a leaf node
             min_samples_split=trace['min_samples_split'][idx],       # ***The minimum number of samples required to split an internal node
-            n_estimators=trace['n_estimators'],          # ***Number of trees in the random forest
+            n_estimators=120#trace['n_estimators'],          # ***Number of trees in the random forest
             n_jobs=-1,                 # The number of jobs to run in parallel for both fit and predict
             oob_score=True,            # use out-of-bag samples to estimate the R^2 on unseen data
             random_state=29,         # seed used by the random number generator
