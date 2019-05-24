@@ -67,7 +67,7 @@ path2fig= '../figures/'
 if(os.path.isdir(path2fig)==False):
     os.mkdir(path2fig)
 
-training_sample_size = 250000
+training_sample_size = 300000
 
 """
 #===============================================================================
@@ -109,14 +109,14 @@ max_features_range = range(int(n_predictors/5),n_predictors)
 min_samples_leaf_range = range(1,50)
 min_samples_split_range = range(2,200)
 #min_impurity_decrease_range = range(0.0,0.2)
-n_estimators_range = range(70,100)
+n_estimators_range = range(70,120)
 
 rf = RandomForestRegressor(criterion="mse",bootstrap=True,n_jobs=-1)
 param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,500,1)),              # ***maximum number of branching levels within each tree
                 "max_features":scope.int(hp.quniform("max_features",int(n_predictors/5),n_predictors,1)),      # ***the maximum number of variables used in a given tree
                 "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,50,1)),    # ***The minimum number of samples required to be at a leaf node
                 "min_samples_split":scope.int(hp.quniform("min_samples_split",2,200,1)),  # ***The minimum number of samples required to split an internal node
-                "n_estimators":scope.int(hp.quniform("n_estimators",70,100,1)),          # ***Number of trees in the random forest
+                "n_estimators":scope.int(hp.quniform("n_estimators",70,120,1)),          # ***Number of trees in the random forest
                 "min_impurity_decrease":hp.uniform("min_impurity_decrease",0.0,0.2),
                 "n_jobs":hp.choice("n_jobs",[20,20])
                 }
@@ -162,9 +162,9 @@ trials=Trials()
 # - randomised search used to initialise (n_startup_jobs iterations)
 # - percentage of hyperparameter combos identified as "good" (gamma)
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
-spin_up = 40
-algorithm = partial(tpe.suggest, n_startup_jobs=spin_up, gamma=0.25, n_EI_candidates=24)
+spin_up = 60
 max_evals = 120
+algorithm = partial(tpe.suggest, n_startup_jobs=spin_up, gamma=0.25, n_EI_candidates=24)
 best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
 print('best:')
 print(best)
