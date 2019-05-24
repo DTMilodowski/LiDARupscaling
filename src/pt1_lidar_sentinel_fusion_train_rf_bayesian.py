@@ -109,14 +109,14 @@ max_features_range = range(int(n_predictors/5),n_predictors)
 min_samples_leaf_range = range(1,50)
 min_samples_split_range = range(2,200)
 #min_impurity_decrease_range = range(0.0,0.2)
-n_estimators_range = range(80,120)
+n_estimators_range = range(70,100)
 
 rf = RandomForestRegressor(criterion="mse",bootstrap=True,n_jobs=-1)
 param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,500,1)),              # ***maximum number of branching levels within each tree
                 "max_features":scope.int(hp.quniform("max_features",int(n_predictors/5),n_predictors,1)),      # ***the maximum number of variables used in a given tree
                 "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,50,1)),    # ***The minimum number of samples required to be at a leaf node
                 "min_samples_split":scope.int(hp.quniform("min_samples_split",2,200,1)),  # ***The minimum number of samples required to split an internal node
-                "n_estimators":scope.int(hp.quniform("n_estimators",80,120,1)),          # ***Number of trees in the random forest
+                "n_estimators":scope.int(hp.quniform("n_estimators",70,100,1)),          # ***Number of trees in the random forest
                 "min_impurity_decrease":hp.uniform("min_impurity_decrease",0.0,0.2),
                 "n_jobs":hp.choice("n_jobs",[40,40])
                 }
@@ -125,6 +125,7 @@ param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,500,1)),       
 best = -np.inf
 seed = 0
 def f(params):
+    global seed
     global best
     # print starting point
     if np.isfinite(best)==False:
@@ -161,9 +162,9 @@ trials=Trials()
 # - randomised search used to initialise (n_startup_jobs iterations)
 # - percentage of hyperparameter combos identified as "good" (gamma)
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
-algorithm = partial(tpe.suggest, n_startup_jobs=30, gamma=0.25, n_EI_candidates=24)
-
-best = fmin(f, param_space, algo=algorithm, max_evals=130, trials=trials)
+algorithm = partial(tpe.suggest, n_startup_jobs=40, gamma=0.25, n_EI_candidates=24)
+max_evals = 120
+best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
 print('best:')
 print(best)
 
@@ -174,26 +175,44 @@ pickle.dump(trials, open('%s%s_%s_rf_sentinel_lidar_agb_trials.p' % (path2alg,si
 # trials = pickle.load(open('%s%s_%s_rf_sentinel_lidar_agb_trials.p' % (path2alg,site_id,version), "rb"))
 
 # plot summary of optimisation runs
-print('Basic plot summarising optimisation results')
+print('Basic plots summarising optimisation results')
 parameters = ['n_estimators','max_depth', 'max_features', 'min_impurity_decrease','min_samples_leaf', 'min_samples_split']
-fig2, axes = plt.subplots(nrows=3, ncols=2, figsize=(8,12))
-cmap = plt.cm.jet
+
+trace = {}
+trace['scores'] = np.zeros(max_evals)
+trace['iteration'] = np.arange(max_evals)+1
+for pp in parameters:
+    trace[pp] = np.zeros(max_evals)
+
+for ii,tt in enumerate(trials.trials):
+     trace['scores'][ii] = -tt['result']['loss']
+     for pp in parameters:
+         trace[pp][ii] = tt['misc']['vals'][pp][0]
+
+df = pd.DataFrame(data=trace)
+
+fig2, axes = plt.subplots(nrows=3, ncols=2, figsize=(8,8))
+cmap = sns.dark_palette('seagreen',as_cmap=True)
 for i, val in enumerate(parameters):
-    xs = np.array([t['misc']['vals'][val] for t in trials.trials]).ravel()
-    ys = [-t['result']['loss'] for t in trials.trials]
-    #xs, ys = zip(\*sorted(zip(xs, ys)))
-    ys = np.array(ys)
-    axes[i//3,i%3].scatter(xs, ys, s=20, linewidth=0.01, alpha=0.5, c=cmap(float(i)/len(parameters)))
+    sns.scatterplot(x=val,y='score',data=df,marker='.',hue='iteration',
+                palette=cmap,edgecolor='none',legend=False,ax=axes[i//3,i%3])
+    axes[i//3,i%3].set_xlabel(val)
+    axes[i//3,i%3].set_ylabel('5-fold C-V score')
+fig2.savefig('%s%s_%s_hyperpar_search_score.png' % (path2fig,site_id,version))
+
+# Plot traces to see progression of hyperparameter selection
+fig3, axes = plt.subplots(nrows=3, ncols=2, figsize=(8,8))
+for i, val in enumerate(parameters):
+    sns.scatterplot(x='iteration',y=val,data=df,marker='.',hue='score',
+                palette=cmap,edgecolor='none',legend=False,ax=axes[i//3,i%3])
     axes[i//3,i%3].set_title(val)
-fig2.savefig('%s%s_%s_hyperpar_search.png' % (path2fig,site_id,version))
+fig3.savefig('%s%s_%s_hyperpar_search_trace.png' % (path2fig,site_id,version))
+
 
 # Take best hyperparameter set and apply cal-val on full training set
 print('Applying cal-val to full training set and withheld validation set')
-scores = np.zeros(130)
-for ii,tt in enumerate(trials.trials):
-     scores[ii] = tt['result']['loss']
-idx = np.argsort(scores)[0]
-best_params = trials.trials[idx] ['misc']['vals']
+idx = np.argsort(trace['scores'])[0]
+best_params = trials.trials[idx]['misc']['vals']
 
 max_depth_best = np.array(max_depth_range)[best_params["max_depth"][0]]
 max_features_best = np.array(max_features_range)[best_params["max_features"][0]]
@@ -203,14 +222,14 @@ n_estimators_best = np.array(n_estimators_range)[best_params["n_estimators"][0]]
 
 rf = RandomForestRegressor(bootstrap=True,
             criterion='mse',           # criteria used to choose split point at each node
-            max_depth= max_depth_best,            # ***maximum number of branching levels within each tree
-            max_features=max_features_best,       # ***the maximum number of variables used in a given tree
+            max_depth= trace['max_depth'][idx],            # ***maximum number of branching levels within each tree
+            max_features=trace['max_features'][idx],       # ***the maximum number of variables used in a given tree
             max_leaf_nodes=None,       # the maximum number of leaf nodes per tree
-            min_impurity_decrease=0.0, # the miminum drop in the impurity of the clusters to justify splitting further
+            min_impurity_decrease=trace['min_impurity_decrease'][idx], # the miminum drop in the impurity of the clusters to justify splitting further
             min_impurity_split=None,   # threshold impurity within an internal node before it will be split
-            min_samples_leaf=min_samples_leaf_best,       # ***The minimum number of samples required to be at a leaf node
-            min_samples_split=min_samples_split_best,       # ***The minimum number of samples required to split an internal node
-            n_estimators=n_estimators_best,          # ***Number of trees in the random forest
+            min_samples_leaf=trace['min_samples_leaf'][idx],       # ***The minimum number of samples required to be at a leaf node
+            min_samples_split=trace['min_samples_split'][idx],       # ***The minimum number of samples required to split an internal node
+            n_estimators=trace['n_estimators'],          # ***Number of trees in the random forest
             n_jobs=-1,                 # The number of jobs to run in parallel for both fit and predict
             oob_score=True,            # use out-of-bag samples to estimate the R^2 on unseen data
             random_state=29,         # seed used by the random number generator
@@ -226,7 +245,6 @@ print("Calibration R^2 = %.02f" % cal_score)
 y_test_rf = rf.predict(X_test)
 val_score = rf.score(X_test,y_test)
 print("Validation R^2 = %.02f" % val_score)
-
 
 # Save random forest model for future use
 joblib.dump(rf,'%s%s_%s_rf_sentinel_lidar_agb_bayes_opt.pkl' % (path2alg,site_id,version))
