@@ -218,25 +218,18 @@ fig3.savefig('%s%s_%s_hyperpar_search_trace.png' % (path2fig,site_id,version))
 
 # Take best hyperparameter set and apply cal-val on full training set
 print('Applying cal-val to full training set and withheld validation set')
-idx = np.argsort(trace['scores'])[0]
+idx = np.argsort(trace['scores'])[-1]
 best_params = trials.trials[idx]['misc']['vals']
-
-max_depth_best = np.array(max_depth_range)[best_params["max_depth"][0]]
-max_features_best = np.array(max_features_range)[best_params["max_features"][0]]
-min_samples_leaf_best = np.array(min_samples_leaf_range)[best_params["min_samples_leaf"][0]]
-min_samples_split_best = np.array(min_samples_split_range)[best_params["min_samples_split"][0]]
-n_estimators_best = np.array(n_estimators_range)[best_params["n_estimators"][0]]
-
 rf = RandomForestRegressor(bootstrap=True,
             criterion='mse',           # criteria used to choose split point at each node
-            max_depth= trace['max_depth'][idx],            # ***maximum number of branching levels within each tree
-            max_features=trace['max_features'][idx],       # ***the maximum number of variables used in a given tree
+            max_depth= int(best_params['max_depth'][0]),            # ***maximum number of branching levels within each tree
+            max_features=int(best_params['max_features'][0]),       # ***the maximum number of variables used in a given tree
             max_leaf_nodes=None,       # the maximum number of leaf nodes per tree
-            min_impurity_decrease=trace['min_impurity_decrease'][idx], # the miminum drop in the impurity of the clusters to justify splitting further
+            min_impurity_decrease=best_params['min_impurity_decrease'][0], # the miminum drop in the impurity of the clusters to justify splitting further
             min_impurity_split=None,   # threshold impurity within an internal node before it will be split
-            min_samples_leaf=trace['min_samples_leaf'][idx],       # ***The minimum number of samples required to be at a leaf node
-            min_samples_split=trace['min_samples_split'][idx],       # ***The minimum number of samples required to split an internal node
-            n_estimators=120#trace['n_estimators'],          # ***Number of trees in the random forest
+            min_samples_leaf=int(best_params['min_samples_leaf'][0]),       # ***The minimum number of samples required to be at a leaf node
+            min_samples_split=int(best_params['min_samples_split'][0]),       # ***The minimum number of samples required to split an internal node
+            n_estimators=150,#trace['n_estimators'],          # ***Number of trees in the random forest
             n_jobs=-1,                 # The number of jobs to run in parallel for both fit and predict
             oob_score=True,            # use out-of-bag samples to estimate the R^2 on unseen data
             random_state=29,         # seed used by the random number generator
