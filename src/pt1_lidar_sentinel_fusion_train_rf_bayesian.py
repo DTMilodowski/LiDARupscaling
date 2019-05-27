@@ -103,27 +103,23 @@ print('Hyperparameter optimisation')
 # hyperparameter optimisation
 X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,test_size=0.25,random_state=23)
 
-#define the parameters for the gridsearch
-max_depth_range = range(20,500)
-max_features_range = range(int(n_predictors/5),n_predictors)
-min_samples_leaf_range = range(1,50)
-min_samples_split_range = range(2,200)
-#min_impurity_decrease_range = range(0.0,0.2)
-n_estimators_range = range(70,120)
+min_samples_split_iter = hp.quniform("min_samples_split",2,200,1)
+min_samples_leaf_iter = hp.quniform("min_samples_leaf",1,min_samples_split_iter,1)
 
 rf = RandomForestRegressor(criterion="mse",bootstrap=True,n_jobs=-1)
 param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,500,1)),              # ***maximum number of branching levels within each tree
                 "max_features":scope.int(hp.quniform("max_features",int(n_predictors/5),n_predictors,1)),      # ***the maximum number of variables used in a given tree
-                "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,50,1)),    # ***The minimum number of samples required to be at a leaf node
-                "min_samples_split":scope.int(hp.quniform("min_samples_split",2,200,1)),  # ***The minimum number of samples required to split an internal node
-                "n_estimators":scope.int(hp.quniform("n_estimators",70,120,1)),          # ***Number of trees in the random forest
-                "min_impurity_decrease":hp.uniform("min_impurity_decrease",0.0,0.2),
+                "min_samples_leaf":scope.int(min_samples_leaf_iter),    # ***The minimum number of samples required to be at a leaf node
+                "min_samples_split":scope.int(min_samples_split_iter),  # ***The minimum number of samples required to split an internal node
+                "n_estimators":scope.int(hp.quniform("n_estimators",70,150,1)),          # ***Number of trees in the random forest
+                "min_impurity_decrease":hp.uniform("min_impurity_decrease",0.0,0.1),
                 "n_jobs":hp.choice("n_jobs",[20,20])
                 }
 
 # define a function to quantify the objective function
 best = -np.inf
 seed = 0
+iter = 0
 def f(params):
     global seed
     global best
@@ -153,7 +149,9 @@ def f(params):
     # - if error reduced, then update best model accordingly
     if score > best:
         best = score
-        print('new best r^2: ', -best, params)
+        iter+=1
+        print('new best r^2: %.6f, after %i iterations', (-best,iter))
+        print(params)
     return {'loss': -score, 'status': STATUS_OK}
 
 trials=Trials()
@@ -163,7 +161,7 @@ trials=Trials()
 # - percentage of hyperparameter combos identified as "good" (gamma)
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
 spin_up = 60
-max_evals = 120
+max_evals = 200
 algorithm = partial(tpe.suggest, n_startup_jobs=spin_up, gamma=0.25, n_EI_candidates=24)
 best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
 print('best:')
