@@ -123,6 +123,7 @@ iter = 0
 def f(params):
     global seed
     global best
+    global iter
     # print starting point
     if np.isfinite(best)==False:
         print('starting point:', params)
