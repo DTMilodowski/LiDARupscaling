@@ -39,7 +39,7 @@ from sklearn.externals import joblib
 import eli5
 from eli5.sklearn import PermutationImportance
 
-from hyperopt import tpe, Trials, fmin, hp, STATUS_OK, space_eval, STATUS_FAIL
+from hyperopt import tpe, rand, Trials, fmin, hp, STATUS_OK, space_eval, STATUS_FAIL
 from hyperopt.pyll.base import scope
 from functools import partial
 
@@ -103,56 +103,41 @@ print('Hyperparameter optimisation')
 # hyperparameter optimisation
 X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,test_size=0.25,random_state=23)
 
-min_samples_split_iter = hp.quniform("min_samples_split",2,200,1)
-min_samples_leaf_iter = hp.quniform("min_samples_leaf",1,min_samples_split_iter,1)
-
 rf = RandomForestRegressor(criterion="mse",bootstrap=True,n_jobs=-1)
-param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,500,1)),              # ***maximum number of branching levels within each tree
+yyyyyparam_space = { "max_depth":scope.int(hp.quniform("max_depth",20,500,1)),              # ***maximum number of branching levels within each tree
                 "max_features":scope.int(hp.quniform("max_features",int(n_predictors/5),n_predictors,1)),      # ***the maximum number of variables used in a given tree
-                "min_samples_leaf":scope.int(min_samples_leaf_iter),    # ***The minimum number of samples required to be at a leaf node
-                "min_samples_split":scope.int(min_samples_split_iter),  # ***The minimum number of samples required to split an internal node
+                "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,50,1)),    # ***The minimum number of samples required to be at a leaf node
+                "min_samples_split": scope.int(hp.quniform("min_samples_split",2,200,1)),  # ***The minimum number of samples required to split an internal node
                 "n_estimators":scope.int(hp.quniform("n_estimators",70,150,1)),          # ***Number of trees in the random forest
                 "min_impurity_decrease":hp.uniform("min_impurity_decrease",0.0,0.1),
                 "n_jobs":hp.choice("n_jobs",[20,20])
                 }
 
 # define a function to quantify the objective function
-best = -np.inf
-seed = 0
-iter = 0
 def f(params):
-    global seed
     global best
-    global iter
-    # print starting point
-    if np.isfinite(best)==False:
-        print('starting point:', params)
-    """
-    # Check that this parameter set has not been tried before - want to avoid
-    # unnecessary computations
-    if len(trials.trials)>1:
-        for x in trials.trials[:-1]:
-            space_point_idx = dict([(key,value[0]) for key,value in x['misc']['vals'].items() if len(value)>0])
-            if params == space_eval(space,space_point_idx):
-                loss = x['result']['loss']
-                return {'loss': loss, 'status': STATUS_FAIL}
-    """
+    global seed
+    global fail_count
+    # check the hyperparameter set is sensible
+    # - check 1: min_samples_split > min_samples_leaf
+    if params['min_samples_split']<params['min_samples_leaf']:
+        fail_count+=1
+        print("INVALID HYPERPARAMETER SELECTION",params)
+        return {'loss': None, 'status': STATUS_FAIL}
+
     # run the cross validation for this parameter set
     # - subsample from training set for this iteration
     X_iter, X_temp, y_iter, y_temp = train_test_split(X, y,
-                                train_size=training_sample_size,test_size=0,
-                                random_state=seed)
-    seed+=1
-    # - set up random forest regressor
+                                    train_size=training_sample_size,test_size=0,
+                                    random_state=seed)
     rf = RandomForestRegressor(**params)
     # - apply cross validation procedure
     score = cross_val_score(rf, X_iter, y_iter, cv=5).mean()
     # - if error reduced, then update best model accordingly
     if score > best:
         best = score
-        iter+=1
-        print('new best r^2: %.6f, after %i iterations', (-best,iter))
-        print(params)
+        print('new best r^2: ', -best, params)
+    seed+=1
     return {'loss': -score, 'status': STATUS_OK}
 
 trials=Trials()
@@ -161,10 +146,33 @@ trials=Trials()
 # - randomised search used to initialise (n_startup_jobs iterations)
 # - percentage of hyperparameter combos identified as "good" (gamma)
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
-spin_up = 60
-max_evals = 200
+max_evals_target = 200
+spin_up_target = 60
+best = -np.inf
+seed=0
+fail_count=0
+
+# Start with randomised search - setting this explicitly to account for some
+# iterations not being accepted
+print("Starting randomised search (spin up)")
+spin_up = spin_up_target+fail_count
+best = fmin(f, param_space, algo=rand.suggest, max_evals=spin_up, trials=trials)
+while (len(trials.trials)-fail_count)<spin_up:
+    spin_up+=1
+    best = fmin(f, param_space, algo=rand.suggest, max_evals=spin_up, trials=trials)
+
+# Now do the TPE search
+print("Starting TPE search")
+max_evals = max_evals_target+fail_count
 algorithm = partial(tpe.suggest, n_startup_jobs=spin_up, gamma=0.25, n_EI_candidates=24)
 best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
+# Not every hyperparameter set will be accepted, so need to conitnue searching
+# until the required number of evaluations is met
+while (len(trials.trials)-fail_count)<max_evals_target:
+    max_evals+=1
+    best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
+
+print('\n\n%i iterations, from which %i failed' % (max_evals,fail_count))
 print('best:')
 print(best)
 
@@ -190,27 +198,10 @@ for ii,tt in enumerate(trials.trials):
          trace[pp][ii] = tt['misc']['vals'][pp][0]
 
 df = pd.DataFrame(data=trace)
-"""
-fig2, axes = plt.subplots(nrows=3, ncols=2, figsize=(8,8))
-cmap = sns.dark_palette('seagreen',as_cmap=True)
-for i, val in enumerate(parameters):
-    sns.scatterplot(x=val,y='score',data=df,marker='.',hue='iteration',
-                palette=cmap,edgecolor='none',legend=False,ax=axes[i//3,i%3])
-    axes[i//3,i%3].set_xlabel(val)
-    axes[i//3,i%3].set_ylabel('5-fold C-V score')
-"""
 fig2,axes = gplt.plot_hyperparameter_search_scores(df,parameters)
 fig2.savefig('%s%s_%s_hyperpar_search_score.png' % (path2fig,site_id,version))
 
 # Plot traces to see progression of hyperparameter selection
-"""
-fig3, axes = plt.subplots(nrows=3, ncols=2, figsize=(8,8))
-for i, val in enumerate(parameters):
-    sns.scatterplot(x='iteration',y=val,data=df,marker='.',hue='score',
-                palette=cmap,edgecolor='none',legend=False,ax=axes[i//3,i%3])
-    axes[i//3,i%3].axvline(spin_up,':',colour = '0.5')
-    axes[i//3,i%3].set_title(val)
-"""
 fig3,axes = gplt.plot_hyperparameter_search_trace(df,parameters)
 fig3.savefig('%s%s_%s_hyperpar_search_trace.png' % (path2fig,site_id,version))
 
