@@ -107,7 +107,7 @@ rf = RandomForestRegressor(criterion="mse",bootstrap=True,n_jobs=-1)
 param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,500,1)),              # ***maximum number of branching levels within each tree
                 "max_features":scope.int(hp.quniform("max_features",int(n_predictors/5),n_predictors,1)),      # ***the maximum number of variables used in a given tree
                 "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,50,1)),    # ***The minimum number of samples required to be at a leaf node
-                "min_samples_split": scope.int(hp.quniform("min_samples_split",2,200,1)),  # ***The minimum number of samples required to split an internal node
+                "min_samples_split": scope.int(hp.quniform("min_samples_split",2,120,1)),  # ***The minimum number of samples required to split an internal node
                 "n_estimators":scope.int(hp.quniform("n_estimators",70,150,1)),          # ***Number of trees in the random forest
                 "min_impurity_decrease":hp.uniform("min_impurity_decrease",0.0,0.1),
                 "n_jobs":hp.choice("n_jobs",[20,20])
