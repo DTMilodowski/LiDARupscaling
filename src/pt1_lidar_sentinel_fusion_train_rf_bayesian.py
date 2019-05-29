@@ -157,7 +157,8 @@ fail_count=0
 print("Starting randomised search (spin up)")
 spin_up = spin_up_target+fail_count
 best = fmin(f, param_space, algo=rand.suggest, max_evals=spin_up, trials=trials)
-while (len(trials.trials)-fail_count)<spin_up:
+while (len(trials.trials)-fail_count)<spin_up_target:
+    print('\tTarget: %i; iterations: %i; failures: %i' % (spin_up_target,len(trials.trials),fail_count))
     spin_up+=1
     best = fmin(f, param_space, algo=rand.suggest, max_evals=spin_up, trials=trials)
 
@@ -169,6 +170,7 @@ best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
 # Not every hyperparameter set will be accepted, so need to conitnue searching
 # until the required number of evaluations is met
 while (len(trials.trials)-fail_count)<max_evals_target:
+    print('\tTarget: %i; iterations: %i; failures: %i' % (max_evals_target,len(trials.trials),fail_count))
     max_evals+=1
     best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
 
