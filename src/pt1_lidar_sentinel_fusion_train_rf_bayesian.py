@@ -115,7 +115,7 @@ param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,500,1)),       
 
 # define a function to quantify the objective function
 def f(params):
-    global best
+    global best_score
     global seed
     global fail_count
     # check the hyperparameter set is sensible
@@ -134,9 +134,9 @@ def f(params):
     # - apply cross validation procedure
     score = cross_val_score(rf, X_iter, y_iter, cv=5).mean()
     # - if error reduced, then update best model accordingly
-    if score > best:
-        best = score
-        print('new best r^2: ', -best, params)
+    if score > best_score:
+        best_score = score
+        print('new best r^2: ', -best_score, params)
     seed+=1
     return {'loss': -score, 'status': STATUS_OK}
 
@@ -148,7 +148,7 @@ trials=Trials()
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
 max_evals_target = 200
 spin_up_target = 60
-best = -np.inf
+best_score = -np.inf
 seed=0
 fail_count=0
 
