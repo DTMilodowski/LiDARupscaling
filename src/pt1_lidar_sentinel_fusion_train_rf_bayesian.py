@@ -155,7 +155,7 @@ fail_count=0
 # Start with randomised search - setting this explicitly to account for some
 # iterations not being accepted
 print("Starting randomised search (spin up)")
-best = fmin(f, param_space, algo=rand.suggest, max_evals=spin_up, trials=trials)
+best = fmin(f, param_space, algo=rand.suggest, max_evals=spin_up_target, trials=trials)
 spin_up = spin_up_target+fail_count
 while (len(trials.trials)-fail_count)<spin_up_target:
     print('\tTarget: %i; iterations: %i; failures: %i' % (spin_up_target,len(trials.trials),fail_count))
