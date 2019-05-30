@@ -189,16 +189,19 @@ pickle.dump(trials, open('%s%s_%s_rf_sentinel_lidar_agb_trials.p' % (path2alg,si
 print('Basic plots summarising optimisation results')
 parameters = ['n_estimators','max_depth', 'max_features', 'min_impurity_decrease','min_samples_leaf', 'min_samples_split']
 
-trace = {}
-trace['scores'] = np.zeros(max_evals)
-trace['iteration'] = np.arange(max_evals)+1
-for pp in parameters:
-    trace[pp] = np.zeros(max_evals)
 
-for ii,tt in enumerate(trials.trials):
-     trace['scores'][ii] = -tt['result']['loss']
-     for pp in parameters:
-         trace[pp][ii] = tt['misc']['vals'][pp][0]
+trace = {}
+trace['scores'] = np.zeros(max_evals_target)
+trace['iteration'] = np.arange(max_evals_target)+1
+for pp in parameters:
+    trace[pp] = np.zeros(max_evals_target)
+ii=0
+for tt in trials.trials:
+    if tt['result']['status']=='ok':
+        trace['scores'][ii] = -tt['result']['loss']
+        for pp in parameters:
+            trace[pp][ii] = tt['misc']['vals'][pp][0]
+        ii+=1
 
 df = pd.DataFrame(data=trace)
 fig2,axes = gplt.plot_hyperparameter_search_scores(df,parameters)
