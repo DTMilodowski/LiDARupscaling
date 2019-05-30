@@ -254,10 +254,10 @@ def add_partial_dependency_instance(ax,rf,X,variable_position=1,show=True,N_iter
 # - parameters = list of hyperparameters to plot (max = 6)
 def plot_hyperparameter_search_scores(df,parameters,k=5):
     fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(8,8))
-    cmap = sns.dark_palette('seagreen',as_cmap=True)
+    cmap = sns.light_palette('seagreen',as_cmap=True)
     for i, val in enumerate(parameters):
-        sns.scatterplot(x=val,y='scores',data=df,marker='.',hue='iteration',
-                    palette=cmap,edgecolor='none',legend=False,ax=axes[i//2,i%2])
+        sns.scatterplot(x=val,y='scores',data=df,marker='o',hue='iteration',
+                    palette=cmap,legend=False,ax=axes[i//2,i%2])
         axes[i//2,i%2].set_xlabel(val)
         axes[i//2,i%2].set_ylabel('%i-fold C-V score' % k)
     plt.tight_layout()
@@ -266,10 +266,10 @@ def plot_hyperparameter_search_scores(df,parameters,k=5):
 # plot hyperparameter trace
 def plot_hyperparameter_search_trace(df,parameters):
     fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(8,8))
-    cmap = sns.dark_palette('seagreen',as_cmap=True)
+    cmap = sns.light_palette('seagreen',as_cmap=True)
     for i, val in enumerate(parameters):
-        sns.scatterplot(x='iteration',y=val,data=df,marker='.',hue='scores',
-                    palette=cmap,edgecolor='none',legend=False,ax=axes[i//2,i%2])
+        sns.scatterplot(x='iteration',y=val,data=df,marker='o',hue='scores',
+                    palette=cmap,legend=False,ax=axes[i//2,i%2])
         axes[i//2,i%2].set_title(val)
     plt.tight_layout()
     return fig,axes
