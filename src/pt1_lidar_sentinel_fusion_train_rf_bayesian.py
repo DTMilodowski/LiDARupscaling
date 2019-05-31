@@ -104,10 +104,10 @@ print('Hyperparameter optimisation')
 X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,test_size=0.25,random_state=23)
 
 rf = RandomForestRegressor(criterion="mse",bootstrap=True,n_jobs=-1)
-param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,500,1)),              # ***maximum number of branching levels within each tree
+param_space = { "max_depth":scope.int(hp.quniform("max_depth",10,500,1)),              # ***maximum number of branching levels within each tree
                 "max_features":scope.int(hp.quniform("max_features",int(n_predictors/5),n_predictors,1)),      # ***the maximum number of variables used in a given tree
-                "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,30,1)),    # ***The minimum number of samples required to be at a leaf node
-                "min_samples_split": scope.int(hp.quniform("min_samples_split",2,100,1)),  # ***The minimum number of samples required to split an internal node
+                "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,25,1)),    # ***The minimum number of samples required to be at a leaf node
+                "min_samples_split": scope.int(hp.quniform("min_samples_split",2,120,1)),  # ***The minimum number of samples required to split an internal node
                 "n_estimators":scope.int(hp.quniform("n_estimators",70,150,1)),          # ***Number of trees in the random forest
                 "min_impurity_decrease":hp.uniform("min_impurity_decrease",0.0,0.1),
                 "n_jobs":hp.choice("n_jobs",[20,20])
@@ -225,7 +225,7 @@ rf = RandomForestRegressor(bootstrap=True,
             min_impurity_split=None,   # threshold impurity within an internal node before it will be split
             min_samples_leaf=int(best_params['min_samples_leaf'][0]),       # ***The minimum number of samples required to be at a leaf node
             min_samples_split=int(best_params['min_samples_split'][0]),       # ***The minimum number of samples required to split an internal node
-            n_estimators=150,#trace['n_estimators'],          # ***Number of trees in the random forest
+            n_estimators=200,#trace['n_estimators'],          # ***Number of trees in the random forest
             n_jobs=-1,                 # The number of jobs to run in parallel for both fit and predict
             oob_score=True,            # use out-of-bag samples to estimate the R^2 on unseen data
             random_state=29,         # seed used by the random number generator
