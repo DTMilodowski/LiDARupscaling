@@ -43,7 +43,7 @@ import map_plots as mplt
 Project Info
 """
 site_id = 'kiuic'
-version = '002'
+version = '006'
 crs = ccrs.UTM('16N')
 path2alg = '../saved_models/'
 path2fig= '../figures/'
@@ -56,19 +56,20 @@ if(os.path.isdir(path2output)==False):
 #===============================================================================
 PART A: UPSCALING
 Load predictor and target variables
-Load fitted rf model
+Load fitted rf models
 Apply fitted model across Sentinel scene
 #-------------------------------------------------------------------------------
 """
 # Load predictors & target
 predictors,target,landmask,labels=io.load_predictors()
 
-# Load rf model
-rf = joblib.load('%s%s_%s_rf_sentinel_lidar_agb.pkl' % (path2alg,site_id,version))
+# Load rf models
+rf = joblib.load('%s%s_%s_rf_sentinel_lidar_agb_bayes_opt.pkl' % (path2alg,site_id,version))
+rf2 = joblib.load('%s%s_%s_rf_sentinel_lidar_agb_bayes_opt_residual.pkl' % (path2alg,site_id,version))
 
 # Now the model has been fitted, we will predict the potential AGB across the
 # full dataset
-agb_mod = rf.predict(predictors)
+agb_mod = rf.predict(predictors)+rf2.predict(predictors)
 
 # Now lets plot this onto a map
 # We'll load in an existing dataset to get the georeferencing information
