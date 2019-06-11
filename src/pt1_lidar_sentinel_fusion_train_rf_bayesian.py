@@ -104,12 +104,12 @@ print('Hyperparameter optimisation')
 X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,test_size=0.25,random_state=23)
 
 rf = RandomForestRegressor(criterion="mse",bootstrap=True,n_jobs=-1)
-param_space = { "max_depth":scope.int(hp.quniform("max_depth",10,500,1)),              # ***maximum number of branching levels within each tree
-                "max_features":scope.int(hp.quniform("max_features",int(n_predictors/5),n_predictors,1)),      # ***the maximum number of variables used in a given tree
-                "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,25,1)),    # ***The minimum number of samples required to be at a leaf node
-                "min_samples_split": scope.int(hp.quniform("min_samples_split",2,120,1)),  # ***The minimum number of samples required to split an internal node
-                "n_estimators":scope.int(hp.quniform("n_estimators",70,150,1)),          # ***Number of trees in the random forest
-                "min_impurity_decrease":hp.uniform("min_impurity_decrease",0.0,0.1),
+param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,500,1)),              # ***maximum number of branching levels within each tree
+                "max_features":scope.int(hp.quniform("max_features",int(n_predictors/4),n_predictors,1)),      # ***the maximum number of variables used in a given tree
+                "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,20,1)),    # ***The minimum number of samples required to be at a leaf node
+                "min_samples_split": scope.int(hp.quniform("min_samples_split",2,80,1)),  # ***The minimum number of samples required to split an internal node
+                "n_estimators":scope.int(hp.quniform("n_estimators",80,120,1)),          # ***Number of trees in the random forest
+                "min_impurity_decrease":hp.uniform("min_impurity_decrease",0.0,0.05),
                 "n_jobs":hp.choice("n_jobs",[20,20])
                 }
 
@@ -248,3 +248,41 @@ joblib.dump(rf,'%s%s_%s_rf_sentinel_lidar_agb_bayes_opt.pkl' % (path2alg,site_id
 # Plot cal-val
 fig1,axes = gplt.plot_cal_val_agb(y_train,y_train_rf,y_test,y_test_rf)
 fig1.savefig('%s%s_%s_cal_val.png' % (path2fig,site_id,version))
+
+"""
+#-------------------------------------------------------------------------------
+PART C: RESIDUAL MODELLING
+Can we improve the random forest model by modelling the residuals?
+- Fit random forest model to residuals
+- Cal-val of combined ("boosted") model
+- Repeat cal-val figures
+#-------------------------------------------------------------------------------
+"""
+
+rf2 = RandomForestRegressor(bootstrap=True,
+            criterion='mse',           # criteria used to choose split point at each node
+            max_depth= int(best_params['max_depth'][0]),            # ***maximum number of branching levels within each tree
+            max_features=int(best_params['max_features'][0]),       # ***the maximum number of variables used in a given tree
+            max_leaf_nodes=None,       # the maximum number of leaf nodes per tree
+            min_impurity_decrease=best_params['min_impurity_decrease'][0], # the miminum drop in the impurity of the clusters to justify splitting further
+            min_impurity_split=None,   # threshold impurity within an internal node before it will be split
+            min_samples_leaf=int(best_params['min_samples_leaf'][0]),       # ***The minimum number of samples required to be at a leaf node
+            min_samples_split=int(best_params['min_samples_split'][0]),       # ***The minimum number of samples required to split an internal node
+            n_estimators=200,#trace['n_estimators'],          # ***Number of trees in the random forest
+            n_jobs=-1,                 # The number of jobs to run in parallel for both fit and predict
+            oob_score=True,            # use out-of-bag samples to estimate the R^2 on unseen data
+            random_state=2000,         # seed used by the random number generator
+            )
+# Calculate the residuals
+residuals = y_train-y_train_rf
+# fit residual model
+rf2.fit(X_train,residuals)
+# predict residuals
+residuals_rf2 = rf2.predict(X_train)
+# update modelled y based on predicted residual
+y_train_rf2 = y_train + residuals_rf2
+# repeat for independent test set
+y_test_rf2 = y_test + rf2.predict(X_test)
+# Plot cal-val
+fig4,axes = gplt.plot_cal_val_agb(y_train,y_train_rf2,y_test,y_test_rf2)
+fig4.savefig('%s%s_%s_cal_val_boosted.png' % (path2fig,site_id,version))
