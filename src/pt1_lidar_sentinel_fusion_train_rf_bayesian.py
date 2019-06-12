@@ -275,8 +275,12 @@ rf2 = RandomForestRegressor(bootstrap=True,
             )
 # Calculate the residuals
 residuals = y_train-y_train_rf
+residuals_test = y_test - y_test_rf
 # fit residual model
 rf2.fit(X_train,residuals)
+# Save random forest model for future use
+joblib.dump(rf2,'%s%s_%s_rf_sentinel_lidar_agb_bayes_opt_residual.pkl' % (path2alg,site_id,version))
+
 # predict residuals
 residuals_rf2 = rf2.predict(X_train)
 # update modelled y based on predicted residual
@@ -286,3 +290,18 @@ y_test_rf2 = y_test + rf2.predict(X_test)
 # Plot cal-val
 fig4,axes = gplt.plot_cal_val_agb(y_train,y_train_rf2,y_test,y_test_rf2)
 fig4.savefig('%s%s_%s_cal_val_boosted.png' % (path2fig,site_id,version))
+
+# Importances
+perm_rf1 = PermutationImportance(rf).fit(X_test, y_test)
+imp_df = pd.DataFrame(data = {'variable': labels,
+                              'permutation_importance': perm_rf1.feature_importances_,
+                              'gini_importance': rf.feature_importances_})
+fig5,axes = gplt.plot_importances(imp_df)
+fig5.savefig('%s%s_%s_importances.png' % (path2fig,site_id,version))
+
+perm_rf2 = PermutationImportance(rf2).fit(X_test, residuals_test)
+imp_residual_df = pd.DataFrame(data = {'variable': labels,
+                              'permutation_importance': perm_rf2.feature_importances_,
+                              'gini_importance': rf2.feature_importances_})
+fig5,axes = gplt.plot_importances(imp_residual_df)
+fig5.savefig('%s%s_%s_importances.png' % (path2fig,site_id,version))
