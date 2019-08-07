@@ -59,7 +59,7 @@ import general_plots as gplt
 Project Info
 """
 site_id = 'kiuic'
-version = '006'
+version = '008'
 path2alg = '../saved_models/'
 if(os.path.isdir(path2alg)==False):
     os.mkdir(path2alg)
@@ -82,9 +82,11 @@ print('Loading data')
 predictors,target,landmask,labels=io.load_predictors()
 n_predictors = predictors.shape[1]
 print(labels)
+"""
 # Custom mask
 target[0:800,2600:2728] = np.nan
 target[4000:,:2000] = np.nan
+"""
 # Keep only areas for which we have biomass estimates
 mask = np.isfinite(target[landmask])
 X = predictors[mask,:]
@@ -104,12 +106,12 @@ print('Hyperparameter optimisation')
 X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,test_size=0.25,random_state=23)
 
 rf = RandomForestRegressor(criterion="mse",bootstrap=True,n_jobs=-1)
-param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,500,1)),              # ***maximum number of branching levels within each tree
+param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,400,1)),              # ***maximum number of branching levels within each tree
                 "max_features":scope.int(hp.quniform("max_features",int(n_predictors/4),n_predictors,1)),      # ***the maximum number of variables used in a given tree
-                "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,20,1)),    # ***The minimum number of samples required to be at a leaf node
-                "min_samples_split": scope.int(hp.quniform("min_samples_split",2,80,1)),  # ***The minimum number of samples required to split an internal node
+                "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",2,20,1)),    # ***The minimum number of samples required to be at a leaf node
+                "min_samples_split": scope.int(hp.quniform("min_samples_split",3,60,1)),  # ***The minimum number of samples required to split an internal node
                 "n_estimators":scope.int(hp.quniform("n_estimators",80,120,1)),          # ***Number of trees in the random forest
-                "min_impurity_decrease":hp.uniform("min_impurity_decrease",0.0,0.05),
+                "min_impurity_decrease":hp.uniform("min_impurity_decrease",0.0,0.02),
                 "n_jobs":hp.choice("n_jobs",[20,20])
                 }
 
@@ -146,8 +148,8 @@ trials=Trials()
 # - randomised search used to initialise (n_startup_jobs iterations)
 # - percentage of hyperparameter combos identified as "good" (gamma)
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
-max_evals_target = 200
-spin_up_target = 60
+max_evals_target = 250
+spin_up_target = 50
 best_score = -np.inf
 seed=0
 fail_count=0
@@ -165,7 +167,7 @@ while (len(trials.trials)-fail_count)<spin_up_target:
 # Now do the TPE search
 print("Starting TPE search")
 max_evals = max_evals_target+fail_count
-algorithm = partial(tpe.suggest, n_startup_jobs=spin_up, gamma=0.25, n_EI_candidates=24)
+algorithm = partial(tpe.suggest, n_startup_jobs=spin_up, gamma=0.15, n_EI_candidates=100)
 best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
 # Not every hyperparameter set will be accepted, so need to conitnue searching
 # until the required number of evaluations is met
@@ -286,7 +288,7 @@ residuals_rf2 = rf2.predict(X_train)
 # update modelled y based on predicted residual
 y_train_rf2 = y_train + residuals_rf2
 # repeat for independent test set
-y_test_rf2 = y_test + rf2.predict(X_test)
+y_test_rf2 = y_test_rf + rf2.predict(X_test)
 # Plot cal-val
 fig4,axes = gplt.plot_cal_val_agb(y_train,y_train_rf2,y_test,y_test_rf2)
 fig4.savefig('%s%s_%s_cal_val_boosted.png' % (path2fig,site_id,version))
@@ -304,4 +306,4 @@ imp_residual_df = pd.DataFrame(data = {'variable': labels,
                               'permutation_importance': perm_rf2.feature_importances_,
                               'gini_importance': rf2.feature_importances_})
 fig5,axes = gplt.plot_importances(imp_residual_df)
-fig5.savefig('%s%s_%s_importances.png' % (path2fig,site_id,version))
+fig5.savefig('%s%s_%s_residual_importances.png' % (path2fig,site_id,version))
