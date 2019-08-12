@@ -60,7 +60,7 @@ import random_forest_functions as rff
 Project Info
 """
 site_id = 'kiuic'
-version = '009'
+version = '010'
 path2alg = '../saved_models/'
 if(os.path.isdir(path2alg)==False):
     os.mkdir(path2alg)
@@ -68,7 +68,6 @@ path2fig= '../figures/'
 if(os.path.isdir(path2fig)==False):
     os.mkdir(path2fig)
 
-training_sample_size = 300000
 
 """
 #===============================================================================
@@ -111,7 +110,7 @@ param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,400,1)),       
                 "max_features":scope.int(hp.quniform("max_features",int(n_predictors/4),n_predictors,1)),      # ***the maximum number of variables used in a given tree
                 "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",2,20,1)),    # ***The minimum number of samples required to be at a leaf node
                 "min_samples_split": scope.int(hp.quniform("min_samples_split",3,60,1)),  # ***The minimum number of samples required to split an internal node
-                "n_estimators":scope.int(hp.quniform("n_estimators",80,120,1)),          # ***Number of trees in the random forest
+                "n_estimators":scope.int(hp.quniform("n_estimators",80,150,1)),          # ***Number of trees in the random forest
                 "min_impurity_decrease":hp.uniform("min_impurity_decrease",0.0,0.02),
                 "n_jobs":hp.choice("n_jobs",[20,20]),
                 "oob_score":hp.choice("oob_score",[True,True])
@@ -129,28 +128,10 @@ def f(params):
         #print("INVALID HYPERPARAMETER SELECTION",params)
         return {'loss': None, 'status': STATUS_FAIL}
 
-    # run the cross validation for this parameter set
-    # - subsample from training set for this iteration
-    X_iter, X_temp, y_iter, y_temp = train_test_split(X, y,
-                                    train_size=training_sample_size,test_size=1,
-                                    random_state=seed)
     # template rf model for rfbc definition
     rf = RandomForestRegressor(**params)
-    # kfold cross validation
-    kf=KFold(n_splits=5,shuffle=True)
-    k_iter=0
-    k=5
-    scores = np.zeros(k)
-    for train_index, test_index in kf.split(y_iter):
-        X_iter_train, y_iter_train = X_iter[train_index],y_iter[train_index]
-        X_iter_test, y_iter_test = X_iter[test_index],y_iter[test_index]
-
-        rf1,rf2 = rff.rfbc_fit(rf,X_iter_train,y_iter_train)
-        y_pred = rff.rfbc_predict(rf1,rf2,X_iter_test)
-        #score = mean_squared_error(y_iter_test,y_pred)
-        scores[k_iter] = r2_score(y_iter_test,y_pred)
-        k_iter+=1
-    score = np.mean(scores)
+    rf.fit(X_train,y_train)
+    score = rf.oob_score
 
     # - if error reduced, then update best model accordingly
     if score > best_score:
