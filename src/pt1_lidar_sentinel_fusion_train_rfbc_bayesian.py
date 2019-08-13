@@ -131,7 +131,7 @@ def f(params):
 
     # run the cross validation for this parameter set
     # - subsample from training set for this iteration
-    X_iter, X_temp, y_iter, y_temp = train_test_split(X, y,
+    X_iter, X_temp, y_iter, y_temp = train_test_split(X_train, y_train,
                                     train_size=training_sample_size,test_size=1,
                                     random_state=seed)
     # template rf model for rfbc definition
