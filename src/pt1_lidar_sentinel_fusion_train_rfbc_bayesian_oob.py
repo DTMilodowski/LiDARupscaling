@@ -110,7 +110,7 @@ param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,400,1)),       
                 "max_features":scope.int(hp.quniform("max_features",int(n_predictors/4),n_predictors,1)),      # ***the maximum number of variables used in a given tree
                 "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",2,20,1)),    # ***The minimum number of samples required to be at a leaf node
                 "min_samples_split": scope.int(hp.quniform("min_samples_split",3,60,1)),  # ***The minimum number of samples required to split an internal node
-                "n_estimators":scope.int(hp.quniform("n_estimators",80,150,1)),          # ***Number of trees in the random forest
+                "n_estimators":scope.int(hp.quniform("n_estimators",80,200,1)),          # ***Number of trees in the random forest
                 "min_impurity_decrease":hp.uniform("min_impurity_decrease",0.0,0.02),
                 "n_jobs":hp.choice("n_jobs",[20,20]),
                 "oob_score":hp.choice("oob_score",[True,True])
@@ -131,8 +131,7 @@ def f(params):
     # template rf model for rfbc definition
     rf = RandomForestRegressor(**params)
     rf.fit(X_train,y_train)
-    score = rf.oob_score
-
+    score = rf.oob_score_
     # - if error reduced, then update best model accordingly
     if score > best_score:
         best_score = score
@@ -146,7 +145,7 @@ trials=Trials()
 # - randomised search used to initialise (n_startup_jobs iterations)
 # - percentage of hyperparameter combos identified as "good" (gamma)
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
-max_evals_target = 250
+max_evals_target = 300
 spin_up_target = 50
 best_score = -np.inf
 seed=0
@@ -225,10 +224,9 @@ rf = RandomForestRegressor(bootstrap=True,
             min_impurity_split=None,   # threshold impurity within an internal node before it will be split
             min_samples_leaf=int(best_params['min_samples_leaf'][0]),       # ***The minimum number of samples required to be at a leaf node
             min_samples_split=int(best_params['min_samples_split'][0]),       # ***The minimum number of samples required to split an internal node
-            n_estimators=500,#trace['n_estimators'],          # ***Number of trees in the random forest
+            n_estimators=int(best_params['n_estimators'][0]),#500          # ***Number of trees in the random forest
             n_jobs=-1,                 # The number of jobs to run in parallel for both fit and predict
-            oob_score=True,            # use out-of-bag samples to estimate the R^2 on unseen data
-            random_state=29,         # seed used by the random number generator
+            oob_score=True            # use out-of-bag samples to estimate the R^2 on unseen data
             )
 
 # fit the calibration sample
@@ -242,15 +240,16 @@ y_test_rfbc = rff.rfbc_predict(rf1,rf2,X_test)
 val_score = r2_score(y_test_rfbc,y_test)
 print("Validation R^2 = %.02f" % val_score)
 
+# Plot cal-val
+fig1,axes = gplt.plot_cal_val_agb(y_train,y_train_rfbc,y_test,y_test_rfbc)
+fig1.savefig('%s%s_%s_cal_val_rfbc.png' % (path2fig,site_id,version))
+
 # Save random forest model for future use
 rf_dict = {}
 rf_dict['rf1']=rf1
 rf_dict['rf2']=rf2
 joblib.dump(rf_dict,'%s%s_%s_rfbc_sentinel_lidar_agb_bayes_opt.pkl' % (path2alg,site_id,version))
 
-# Plot cal-val
-fig1,axes = gplt.plot_cal_val_agb(y_train,y_train_rfbc,y_test,y_test_rfbc)
-fig1.savefig('%s%s_%s_cal_val_rfbc.png' % (path2fig,site_id,version))
 """
 # Importances
 perm_rf1 = PermutationImportance(rf).fit(X_test, y_test)
