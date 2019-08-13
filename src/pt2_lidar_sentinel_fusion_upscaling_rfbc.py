@@ -72,7 +72,7 @@ rf1=rf_dict['rf1']
 rf2=rf_dict['rf2']
 # Now the model has been fitted, we will predict the potential AGB across the
 # full dataset
-agb_mod = rf.predict(predictors)+rf2.predict(predictors)
+agb_mod = rff.rfbc_predict(rf1,rf2,predictors)
 
 # Now lets plot this onto a map
 # We'll load in an existing dataset to get the georeferencing information
