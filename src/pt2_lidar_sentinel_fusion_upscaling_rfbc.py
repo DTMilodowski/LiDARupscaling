@@ -76,7 +76,7 @@ agb_mod = rff.rfbc_predict(rf1,rf2,predictors)
 
 # Now lets plot this onto a map
 # We'll load in an existing dataset to get the georeferencing information
-template_file = '%s/lidar/processed/%s_lidar_agb_regridded.tif' % (path2data,site_id)
+template_file = '%s/lidar/processed/%s_AGB_07-31-19_regridded.tif.tif' % (path2data,site_id)
 template = io.load_geotiff(template_file,option=1)
 
 #let's copy to a new xarray for AGBpot
