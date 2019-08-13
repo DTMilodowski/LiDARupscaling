@@ -186,6 +186,7 @@ def load_predictors(site_id = 'kiuic', path2data = "/exports/csce/datastore/geos
     path2lidar = path2data+'/lidar/processed/'
     path2sentinel = path2data+'/sentinel/processed/'
     path2mask = path2data+'/forest_mask/'
+    #path2mask = path2data+'/land_cover/'
 
     # Load the sentinel data
     sentinel_files = sorted(glob.glob('%s%s*tif' % (path2sentinel,site_id)))
@@ -205,6 +206,8 @@ def load_predictors(site_id = 'kiuic', path2data = "/exports/csce/datastore/geos
     """
     forest = xr.open_rasterio('%s/%s_10_regridded.tif' % (path2mask,site_id)).values[0]
     mask=forest==1
+    #forest = xr.open_rasterio('%s/%s_4_classes_regridded.tif' % (path2mask,site_id)).values[0]
+    #mask=np.any((forest==2,forest==3,forest==4),axis=0)
     sentinel = np.zeros((len(sentinel_files),rows,cols))
     for ii,ff in enumerate(sentinel_files):
         sentinel[ii] = xr.open_rasterio(ff).values
