@@ -224,7 +224,7 @@ rf = RandomForestRegressor(bootstrap=True,
             min_impurity_split=None,   # threshold impurity within an internal node before it will be split
             min_samples_leaf=int(best_params['min_samples_leaf'][0]),       # ***The minimum number of samples required to be at a leaf node
             min_samples_split=int(best_params['min_samples_split'][0]),       # ***The minimum number of samples required to split an internal node
-            n_estimators=int(best_params['n_estimators'][0]),#500          # ***Number of trees in the random forest
+            n_estimators=500,# int(best_params['n_estimators'][0])         # ***Number of trees in the random forest
             n_jobs=-1,                 # The number of jobs to run in parallel for both fit and predict
             oob_score=True            # use out-of-bag samples to estimate the R^2 on unseen data
             )
