@@ -76,13 +76,14 @@ agb_mod = rff.rfbc_predict(rf1,rf2,predictors)
 
 # Now lets plot this onto a map
 # We'll load in an existing dataset to get the georeferencing information
-template_file = '%s/lidar/processed/%s_AGB_07-31-19_regridded.tif.tif' % (path2data,site_id)
+template_file = '%s/lidar/processed/%s_AGB_07-31-19_regridded.tif' % (path2data,site_id)
 template = io.load_geotiff(template_file,option=1)
 
 #let's copy to a new xarray for AGBpot
 agb = io.copy_xarray_template(template)
 agb.values[landmask] = agb_mod.copy()
 agb.values[agb.values==-9999]=np.nan
+agb.values[agb.values<0]=0
 
 """
 #===============================================================================
@@ -90,8 +91,8 @@ PART B: PLOT UPSCALED AGB ESTIMATE AND WRITE TO GEOTIFF
 #-------------------------------------------------------------------------------
 """
 figure_name = '%s%s_%s_agb_upscaled.png' % (path2fig,site_id,version)
-fig1,axis = mplt.plot_xarray(agb, figure_name = figure_name,vmin=0,vmax=250,
-                    add_colorbar=True,
+fig1,axis = mplt.plot_xarray(agb, figure_name = figure_name,figsize_x=6,figsize_y=8,
+                    vmin=0,vmax=250,add_colorbar=True,
                     cbar_kwargs={'label': 'AGB$_{def}$ / Mg ha$^{-1}$',
                     'orientation':'horizontal'}, subplot_kw = {'projection':crs})
 
