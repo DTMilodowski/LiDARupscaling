@@ -30,6 +30,7 @@ import matplotlib.pyplot as plt     # plotting package
 import seaborn as sns               # another useful plotting package
 import os
 import pandas as pd
+from scipy import stats
 
 from sklearn.metrics import r2_score, mean_squared_error
 
@@ -115,8 +116,6 @@ x_labs = ['AGB$_{lidar}$ / Mg ha$^{-1}$',
 annotations = ['lidar vs.\ninventory','upscaled vs.\ninventory (lidar)',
                 'upscaled vs.\ninventory (outside)']
 
-from scipy import stats
-
 temp1,temp2,r_a,temp3,temp4 = stats.linregress(lidar_df.dropna()['lidar'],lidar_df.dropna()['plot'])
 temp1,temp2,r_b,temp3,temp4 = stats.linregress(lidar_df.dropna()['upscaled'],lidar_df.dropna()['plot'])
 temp1,temp2,r_c,temp3,temp4 = stats.linregress(other_df.dropna()['upscaled'],other_df.dropna()['plot'])
@@ -139,5 +138,5 @@ for ii,ax in enumerate(axes):
     ax.set_aspect('equal')
 
 fig.tight_layout()
-fig.savefig('%s%s_%s_inventory_comparison.png' % (path2output,site_id,version))
+fig.savefig('%s%s_%s_inventory_comparison.png' % (path2fig,site_id,version))
 fig.show()
