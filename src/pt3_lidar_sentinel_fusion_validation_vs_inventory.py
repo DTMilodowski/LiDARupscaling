@@ -69,20 +69,38 @@ Split inventory data into calibration vs. validation
 """
 # LiDAR AGB
 lidar_file = '%s/lidar/processed/%s_AGB_07-31-19_regridded.tif' % (path2data,site_id)
-lidar = io.load_geotiff(template_file,option=1)
+lidar = io.load_geotiff(lidar_file,option=1)
 lidar.values[lidar.values==-9999]=np.nan
 lidar.values[lidar.values<0]=0
 
 # Upscaled AGB
-upscaled_file = '%s%s_%s_rfbc_agb_upscaled.tif' % (path2output,site_id,version)
-upscaled = io.load_geotiff(template_file,option=1)
+upscaled_file = '%s%s_%s_rf_agb_upscaled.tif' % (path2output,site_id,version)
+upscaled = io.load_geotiff(upscaled_file,option=1)
 upscaled.values[upscaled.values==-9999]=np.nan
 upscaled.values[upscaled.values<0]=0
 
 # inventory
-inventory_file = ''
-inventory = ''
+inventory_file = '%s/field_inventory/%s_field_inventory.csv' % (path2data,site_id)
+inventory = np.genfromtxt(inventory_file,delimiter=',',names=True)
 
+# split inventory based on inside vs. outside lidar extent
+lidar_agb_field = []
+lidar_agb_lidar = []
+lidar_agb_upscaled = []
+other_agb_field = []
+other_agb_upscaled = []
+
+for ii,plot in enumerate(inventory):
+    nearest_x = np.argsort((lidar.coords['x'].values-plot['x'])**2)[0]
+    nearest_y = np.argsort((lidar.coords['y'].values-plot['y']**2))[0]
+    lidar_agb = lidar.values[nearest_y,nearest_x]
+    if np.isfinite(lidar_agb):
+        lidar_agb_field.append(plot['AGB'])
+        lidar_agb_lidar.append(lidar_agb)
+        lidar_agb_upscaled.append(upscaled.values[nearest_y,nearest_x])
+    else:
+        other_agb_field.append(plot['AGB'])
+        other_agb_upscaled.append(upscaled.values[nearest_y,nearest_x])
 
 """
 #===============================================================================
