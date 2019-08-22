@@ -182,7 +182,7 @@ print(best)
 print('saving trials to file for future reference')
 pickle.dump(trials, open('%s%s_%s_rf_sentinel_lidar_agb_trials_rfbc.p' % (path2alg,site_id,version), "wb"))
 # open with:
-# trials = pickle.load(open('%s%s_%s_rf_sentinel_lidar_agb_trials.p' % (path2alg,site_id,version), "rb"))
+# trials = pickle.load(open('%s%s_%s_rf_sentinel_lidar_agb_trials_rfbc.p' % (path2alg,site_id,version), "rb"))
 
 # plot summary of optimisation runs
 print('Basic plots summarising optimisation results')
