@@ -31,6 +31,10 @@ import seaborn as sns               # another useful plotting package
 import os
 import pandas as pd
 from scipy import stats
+import shapely
+from shapely.geometry.point import Point
+from shapely.geometry import Polygon
+
 
 from sklearn.metrics import r2_score, mean_squared_error
 
@@ -75,14 +79,78 @@ upscaled.values[upscaled.values<0]=0
 inventory_file = '%s/field_inventory/%s_field_inventory.csv' % (path2data,site_id)
 inventory = np.genfromtxt(inventory_file,delimiter=',',names=True)
 
+# Get the coordinate information for the raster datasets
+X_raster = lidar.coords['x'].values
+Y_raster = lidar.coords['y'].values
+dX = X_raster[1]-X_raster[0]
+dY = Y_raster[1] - Y_raster[0]
+rad = np.sqrt(2.*max((dX/2.)**2,(dY/2.)**2))
+
 # split inventory based on inside vs. outside lidar extent
 lidar_agb_field = []
 lidar_agb_lidar = []
 lidar_agb_upscaled = []
 other_agb_field = []
 other_agb_upscaled = []
+radius_1ha = np.sqrt(10.**4/np.pi)
 
+# Loop through the plots
 for ii,plot in enumerate(inventory):
+
+    # Generate mask around plot to make subsequent code more efficient
+    Xmin = plot['x']-radius_1ha
+    Ymin = plot['y']-radius_1ha
+    Xmax = plot['x']+radius_1ha
+    Ymax = plot['y']+radius_1ha
+
+    x_mask = np.all((X_raster>=Xmin-rad,X_raster<=Xmax+rad),axis=0)
+    y_mask = np.all((Y_raster>=Ymin-rad,Y_raster<=Ymax+rad),axis=0)
+    mask = np.ix_(y_mask,x_mask)
+
+    # Get subset indices for masked array
+    rows_sub = y_mask.sum()
+    cols_sub = x_mask.sum()
+    raster_sub = np.zeros((rows_sub,cols_sub))
+    X_sub = X_raster[x_mask]
+    Y_sub = Y_raster[y_mask]
+    X1 = X_sub-dX/2.
+    X2 = X_sub+dX/2.
+    Y1 = Y_sub-dY/2.
+    Y2 = Y_sub+dY/2.
+
+    # subset the rasters for sampling
+    lidar_sub = lidar.values[mask]
+    upscaled_sub = upscaled.values[mask]
+
+    # Create a Shapely Point object for the plot centre and buffer to 1 ha area
+    plot_1ha = Point(plot['x'],plot['y']).buffer(radius_1ha)
+
+    # now find all pixels from subset that at least partially fall within the plot radius
+    in_plot = np.zeros((rows_sub,cols_sub))
+
+    # for each pixel, check intersection area
+    for rr in range(0, rows_sub):
+        for cc in range(0, cols_sub):
+            # create a pixel polygon
+            pixel = Polygon(np.asarray([(X1[cc],Y1[rr]),(X2[cc],Y1[rr]),(X2[cc],Y2[rr]),(X1[cc],Y2[rr])]))
+            # calculate the intersection fraction
+            in_plot[rr,cc] = pixel.intersection(plot_1ha).area/pixel.area
+
+    # Now calculate average AGB in 1 ha plot weighted by fraction of pixel area
+    # within the plot
+    lidar_agb = np.sum(lidar_sub*in_plot)/np.sum(in_plot)
+    upscaled_agb = np.sum(upscaled_sub*in_plot)/np.sum(in_plot)
+
+    if np.isfinite(lidar_agb):
+        lidar_agb_field.append(plot['AGB'])
+        lidar_agb_lidar.append(lidar_agb)
+        lidar_agb_upscaled.append(upscaled_agb)
+    else:
+        other_agb_field.append(plot['AGB'])
+        other_agb_upscaled.append(upscaled_agb)
+
+    """
+    # this code snippet locates nearest pixel. Not used
     nearest_x = np.argsort((lidar.coords['x'].values-plot['x'])**2)[0]
     nearest_y = np.argsort((lidar.coords['y'].values-plot['y'])**2)[0]
     lidar_agb = lidar.values[nearest_y,nearest_x]
@@ -93,6 +161,7 @@ for ii,plot in enumerate(inventory):
     else:
         other_agb_field.append(plot['AGB'])
         other_agb_upscaled.append(upscaled.values[nearest_y,nearest_x])
+    """
 
 """
 #===============================================================================
