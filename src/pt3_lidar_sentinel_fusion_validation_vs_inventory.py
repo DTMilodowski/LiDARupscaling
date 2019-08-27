@@ -44,7 +44,7 @@ import sys
 sys.path.append('./data_io/')
 import data_io as io
 
-sns.set('darkgrid')
+sns.set_style('darkgrid')
 
 """
 Project Info
@@ -96,6 +96,11 @@ lidar_agb_lidar = []
 lidar_agb_upscaled = []
 other_agb_field = []
 other_agb_upscaled = []
+other_x = []
+other_y = []
+lidar_x = []
+lidar_y = []
+
 radius_1ha = np.sqrt(10.**4/np.pi)
 
 # Loop through the plots
@@ -156,9 +161,13 @@ for ii,plot in enumerate(inventory):
         lidar_agb_field.append(plot['properties']['AGB'])
         lidar_agb_lidar.append(lidar_agb)
         lidar_agb_upscaled.append(upscaled_agb)
+        lidar_x.append(plot['geometry']['coordinates'][0])
+        lidar_y.append(plot['geometry']['coordinates'][1])
     else:
         other_agb_field.append(plot['properties']['AGB'])
         other_agb_upscaled.append(upscaled_agb)
+        other_x.append(plot['geometry']['coordinates'][0])
+        other_y.append(plot['geometry']['coordinates'][1])
 
     """
     # this code snippet locates nearest pixel. Not used
@@ -180,15 +189,16 @@ PART B: COMPARE INVENTORY vs LiDAR/UPSCALED AGB ESTIMATES
 #-------------------------------------------------------------------------------
 """
 lidar_df = pd.DataFrame({'lidar':lidar_agb_lidar,'upscaled':lidar_agb_upscaled,
-                    'plot':lidar_agb_field})
-other_df = pd.DataFrame({'upscaled':other_agb_upscaled,'plot':other_agb_field})
+                    'plot':lidar_agb_field,'x':lidar_x,'y':lidar_y})
+other_df = pd.DataFrame({'upscaled':other_agb_upscaled,'plot':other_agb_field,
+                    'x':other_x,'y':other_y})
 
 # Now plot up summaries according to the subset in question
 fig,axes = plt.subplots(nrows=1,ncols=3,figsize=[10,3.4],sharex='all',sharey='all')
 
-sns.regplot('lidar','plot',data=lidar_df,ax=axes[0],scatter_kws={'s':2})
-sns.regplot('upscaled','plot',data=lidar_df,ax=axes[1],scatter_kws={'s':2})
-sns.regplot('upscaled','plot',data=other_df,ax=axes[2],scatter_kws={'s':2})
+sns.regplot('plot','lidar',data=lidar_df,ax=axes[0],scatter_kws={'s':2})
+sns.regplot('plot','upscaled',data=lidar_df,ax=axes[1],scatter_kws={'s':2})
+sns.regplot('plot','upscaled',data=other_df,ax=axes[2],scatter_kws={'s':2})
 
 x_labs = ['AGB$_{lidar}$ / Mg ha$^{-1}$',
         'AGB$_{upscaled}$ / Mg ha$^{-1}$',
@@ -213,10 +223,52 @@ for ii,ax in enumerate(axes):
     ax.annotate('R$^2$=%.3f\nRMSE=%.1f' % (R2[ii],RMSE[ii]), xy=(0.95,0.05), xycoords='axes fraction',
                         backgroundcolor='none',horizontalalignment='right',
                         verticalalignment='bottom', fontsize=10)
-    ax.set_xlabel(x_labs[ii],fontsize=10)
-    ax.set_ylabel('AGB$_{inventory}$ / Mg ha$^{-1}$',fontsize=10)
+    ax.set_ylabel(x_labs[ii],fontsize=10)
+    ax.set_xlabel('AGB$_{inventory}$ / Mg ha$^{-1}$',fontsize=10)
     ax.set_aspect('equal')
+
+axes[0].set_ylim(ymin=0)
+axes[0].set_xlim(xmin=0)
 
 fig.tight_layout()
 fig.savefig('%s%s_%s_inventory_comparison.png' % (path2fig,site_id,version))
+fig.show()
+
+"""
+#===============================================================================
+PART C: PLOT LIDAR AGB MAP, UPSCALED AGB MAP AND RESIDUAL RELATIVE TO INVENTORY
+#-------------------------------------------------------------------------------
+"""
+lidar_df['upscaling_residual'] = lidar_df['plot'] - lidar_df['upscaled']
+other_df['upscaling_residual'] = other_df['plot'] - other_df['upscaled']
+
+# Now plot up summaries according to the subset in question
+fig,axes = plt.subplots(nrows=1,ncols=2,figsize=[12,7],sharex='all',sharey='all')
+
+upscaled.plot(ax=axes[1],cmap='gray',add_colorbar=False)
+axes[1].scatter(lidar_df['x'],lidar_df['y'],marker = 'o',c=lidar_df['upscaling_residual'],
+        cmap = 'bwr',edgecolor='black',vmin=-150,vmax=150)
+im = axes[1].scatter(other_df['x'],other_df['y'],marker = 's',c=other_df['upscaling_residual'],
+        cmap = 'bwr',edgecolor='black',vmin=-150,vmax=150)
+cbar = plt.colorbar(mappable=im,extend='both',ax=axes[1],orientation='horizontal')
+
+upscaled.plot(ax=axes[0],cbar_kwargs={'label':'AGB / Mg ha$^{-1}$','orientation':'horizontal'})
+
+annotations = ['upscaled AGB map','residual AGB relative to inventory']
+
+for ii,ax in enumerate(axes):
+    ax.set_title(annotations[ii])
+    ax.set_aspect('equal')
+
+cbar.set_label('AGB$_{inventory}$ - AGB$_{upscaled}$ / Mg ha$^{-1}$')
+
+
+fig.tight_layout()
+fig.savefig('%s%s_%s_inventory_comparison_mapped.png' % (path2fig,site_id,version))
+fig.show()
+
+
+axes[0].set_xlim((225000,238000))
+axes[0].set_ylim((2215000,2228000))
+fig.savefig('%s%s_%s_inventory_comparison_mapped_zoom.png' % (path2fig,site_id,version))
 fig.show()
