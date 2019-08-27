@@ -34,6 +34,7 @@ from scipy import stats
 import shapely
 from shapely.geometry.point import Point
 from shapely.geometry import Polygon
+import fiona
 
 
 from sklearn.metrics import r2_score, mean_squared_error
@@ -43,12 +44,14 @@ import sys
 sys.path.append('./data_io/')
 import data_io as io
 
+sns.set('darkgrid')
+
 """
 Project Info
 """
 site_id = 'kiuic'
 version = '010'
-crs = ccrs.UTM('16N')
+#crs = ccrs.UTM('16N')
 path2alg = '../saved_models/'
 path2fig= '../figures/'
 path2data = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/'
@@ -76,8 +79,9 @@ upscaled.values[upscaled.values==-9999]=np.nan
 upscaled.values[upscaled.values<0]=0
 
 # inventory
-inventory_file = '%s/field_inventory/%s_field_inventory.csv' % (path2data,site_id)
-inventory = np.genfromtxt(inventory_file,delimiter=',',names=True)
+#inventory_file = '%s/field_inventory/%s_field_inventory.csv' % (path2data,site_id)
+#inventory = np.genfromtxt(inventory_file,delimiter=',',names=True)
+inventory = fiona.open('%s/field_inventory/PUNTOS.shp' % path2data)
 
 # Get the coordinate information for the raster datasets
 X_raster = lidar.coords['x'].values
@@ -98,10 +102,16 @@ radius_1ha = np.sqrt(10.**4/np.pi)
 for ii,plot in enumerate(inventory):
 
     # Generate mask around plot to make subsequent code more efficient
+    """
     Xmin = plot['x']-radius_1ha
     Ymin = plot['y']-radius_1ha
     Xmax = plot['x']+radius_1ha
     Ymax = plot['y']+radius_1ha
+    """
+    Xmin = plot['geometry']['coordinates'][0]-radius_1ha
+    Ymin = plot['geometry']['coordinates'][1]-radius_1ha
+    Xmax = plot['geometry']['coordinates'][0]+radius_1ha
+    Ymax = plot['geometry']['coordinates'][1]+radius_1ha
 
     x_mask = np.all((X_raster>=Xmin-rad,X_raster<=Xmax+rad),axis=0)
     y_mask = np.all((Y_raster>=Ymin-rad,Y_raster<=Ymax+rad),axis=0)
@@ -123,7 +133,8 @@ for ii,plot in enumerate(inventory):
     upscaled_sub = upscaled.values[mask]
 
     # Create a Shapely Point object for the plot centre and buffer to 1 ha area
-    plot_1ha = Point(plot['x'],plot['y']).buffer(radius_1ha)
+    #plot_1ha = Point(plot['x'],plot['y']).buffer(radius_1ha)
+    plot_1ha = Point(plot['geometry']['coordinates'][0],plot['geometry']['coordinates'][1]).buffer(radius_1ha)
 
     # now find all pixels from subset that at least partially fall within the plot radius
     in_plot = np.zeros((rows_sub,cols_sub))
@@ -142,11 +153,11 @@ for ii,plot in enumerate(inventory):
     upscaled_agb = np.sum(upscaled_sub*in_plot)/np.sum(in_plot)
 
     if np.isfinite(lidar_agb):
-        lidar_agb_field.append(plot['AGB'])
+        lidar_agb_field.append(plot['properties']['AGB'])
         lidar_agb_lidar.append(lidar_agb)
         lidar_agb_upscaled.append(upscaled_agb)
     else:
-        other_agb_field.append(plot['AGB'])
+        other_agb_field.append(plot['properties']['AGB'])
         other_agb_upscaled.append(upscaled_agb)
 
     """
