@@ -227,8 +227,8 @@ for ii,ax in enumerate(axes):
     ax.set_xlabel('AGB$_{inventory}$ / Mg ha$^{-1}$',fontsize=10)
     ax.set_aspect('equal')
 
-axes[0].set_ylim(ymin=0)
-axes[0].set_xlim(xmin=0)
+axes[0].set_ylim(bottom=0)
+axes[0].set_xlim(left=0)
 
 fig.tight_layout()
 fig.savefig('%s%s_%s_inventory_comparison.png' % (path2fig,site_id,version))
