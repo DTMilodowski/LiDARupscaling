@@ -125,7 +125,6 @@ for ii,plot in enumerate(inventory):
     # Get subset indices for masked array
     rows_sub = y_mask.sum()
     cols_sub = x_mask.sum()
-    raster_sub = np.zeros((rows_sub,cols_sub))
     X_sub = X_raster[x_mask]
     Y_sub = Y_raster[y_mask]
     X1 = X_sub-dX/2.
