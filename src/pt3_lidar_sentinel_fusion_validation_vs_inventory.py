@@ -245,14 +245,20 @@ other_df['upscaling_residual'] = other_df['plot'] - other_df['upscaled']
 # Now plot up summaries according to the subset in question
 fig,axes = plt.subplots(nrows=1,ncols=2,figsize=[12,7],sharex='all',sharey='all')
 
-upscaled.plot(ax=axes[1],cmap='gray',add_colorbar=False)
+upscaled.plot(ax=axes[1],vmin=0,vmax=300,cmap='gray',add_colorbar=False)
 axes[1].scatter(lidar_df['x'],lidar_df['y'],marker = 'o',c=lidar_df['upscaling_residual'],
         cmap = 'bwr',edgecolor='black',vmin=-150,vmax=150)
 im = axes[1].scatter(other_df['x'],other_df['y'],marker = 's',c=other_df['upscaling_residual'],
         cmap = 'bwr',edgecolor='black',vmin=-150,vmax=150)
 cbar = plt.colorbar(mappable=im,extend='both',ax=axes[1],orientation='horizontal')
 
-upscaled.plot(ax=axes[0],cbar_kwargs={'label':'AGB / Mg ha$^{-1}$','orientation':'horizontal'})
+upscaled.plot(ax=axes[0],vmin=0,vmax=300,
+            cbar_kwargs={'label':'AGB / Mg ha$^{-1}$','orientation':'horizontal',
+            'extend':'max'})
+axes[0].scatter(lidar_df['x'],lidar_df['y'],marker = 'o',c=lidar_df['plot'],
+        cmap = 'viridis',edgecolor='black',vmin=0,vmax=300)
+axes[0].scatter(other_df['x'],other_df['y'],marker = 's',c=other_df['plot'],
+        cmap = 'viridis',edgecolor='black',vmin=0,vmax=300)
 
 annotations = ['upscaled AGB map','residual AGB relative to inventory']
 
