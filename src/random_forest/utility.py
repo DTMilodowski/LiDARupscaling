@@ -12,7 +12,7 @@ from shapely.geometry import Polygon
 """
 sample_raster_by_point_neighbourhood_weighted_average
 """
-def sample_raster_by_point_neighbourhood_weighted_average(plot,raster,radius):
+def sample_raster_by_point_neighbourhood(plot,raster,radius):
 
     X_raster = raster.coords['x'].values
     Y_raster = raster.coords['y'].values
@@ -24,7 +24,7 @@ def sample_raster_by_point_neighbourhood_weighted_average(plot,raster,radius):
     Xmin = plot['geometry']['coordinates'][0]-radius
     Ymin = plot['geometry']['coordinates'][1]-radius
     Xmax = plot['geometry']['coordinates'][0]+radius
-    Ymax = plot['geometry']['coordinates'][1]+radius_
+    Ymax = plot['geometry']['coordinates'][1]+radius
 
     x_mask = np.all((X_raster>=Xmin-rad,X_raster<=Xmax+rad),axis=0)
     y_mask = np.all((Y_raster>=Ymin-rad,Y_raster<=Ymax+rad),axis=0)
