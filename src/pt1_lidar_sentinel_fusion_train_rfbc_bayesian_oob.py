@@ -86,6 +86,7 @@ print(labels)
 # Custom mask
 target[0:800,2600:2728] = np.nan
 target[4000:,:2000] = np.nan
+target[2186:] = np.nan
 """
 # Keep only areas for which we have biomass estimates
 mask = np.isfinite(target[landmask])
