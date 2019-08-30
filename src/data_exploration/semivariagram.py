@@ -74,20 +74,27 @@ def weibull_cdf_norm(x,scale,shape):
 def weibull_cdf(x,scale,shape,sill):
     return sill*(1-np.exp(-((x/scale)**shape)))
 # fit weibull distribution to a specified cumulative density function
-def fit_weibull_distribution_from_cdf(x,cdf,norm=True):
+def fit_weibull_distribution_from_cdf(x,cdf,norm=True,p0=[]):
     mask = np.isfinite(cdf)
     x=x[mask];cdf=cdf[mask]
     if norm:
-        popt,pcov = curve_fit(weibull_cdf_norm,x,cdf)
+        if len(p0)<1:
+            popt,pcov = curve_fit(weibull_cdf_norm,x,cdf)
+        else:
+            popt,pcov = curve_fit(weibull_cdf_norm,x,cdf,p0=p0)
         weib = weibull_cdf(x,popt[0],popt[1])
     else:
-        popt,pcov = curve_fit(weibull_cdf,x,cdf)
+        if len(p0)<1:
+            popt,pcov = curve_fit(weibull_cdf,x,cdf)
+        else:
+            popt,pcov = curve_fit(weibull_cdf,x,cdf,p0=p0)
         weib = weibull_cdf(x,popt[0],popt[1],popt[2])
     return weib
 
 # get the effective scale of the spatial autocorrelation
 def get_effective_scale(x,model,threshold=0.95):
-    limit=np.percentile(model,threshold)
+    limit=threshold*np.max(model)
+    print(limit)
     scale = np.min(x[model>=limit])
     return scale
 
