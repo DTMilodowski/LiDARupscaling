@@ -13,6 +13,10 @@ import numpy as np
 from scipy import stats
 from scipy.optimize import curve_fit
 
+"""
+BASIC FUNCTIONS
+- Construct empirical semivariagram
+"""
 # Construct empirical semivariagram
 # Input arguments:
 # - P: a Nx3 array, with columns for x,y,data
@@ -55,6 +59,13 @@ def empirical_semivariagram(P,hs,bw):
     sv = [ [ hs[ii], semivariance[ii] ] for ii in range( len( hs ) ) if semivariance[ii] > 0 ]
     return np.array( sv ).T
 
+
+"""
+THEORETICAL MODELS
+Various models for fitting to semivariagrams to be included here
+- Weibull
+- Retrieve effective scale from semivariagram based on model fit
+"""
 # takes in a cdf and fits a weibull distribution. Note that if it is a true
 # probability density distribution, then use weibull_cdf_norm, which tops out
 # at one
@@ -62,7 +73,6 @@ def weibull_cdf_norm(x,scale,shape):
     return 1-np.exp(-((x/scale)**shape))
 def weibull_cdf(x,scale,shape,sill):
     return sill*(1-np.exp(-((x/scale)**shape)))
-
 # fit weibull distribution to a specified cumulative density function
 def fit_weibull_distribution_from_cdf(x,cdf,norm=True):
     mask = np.isfinite(cdf)
@@ -81,6 +91,10 @@ def get_effective_scale(x,model,threshold=0.95):
     scale = np.min(x[model>=limit])
     return scale
 
+"""
+WRAPPER FUNCTIONS
+Automatically create empirical semivariagrams from specific data types
+"""
 # Semivariagram from xarray raster
 def empirical_semivariagram_from_xarray(raster,N_sample,llim,ulim,bandwidth,
                         x_name ='x',y_name='y'):
