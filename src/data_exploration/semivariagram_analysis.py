@@ -18,41 +18,13 @@ import matplotlib.pyplot as plt     # plotting package
 import seaborn as sns               # another useful plotting package
 sns.set_style('darkgrid')
 import pandas as pd
-from scipy import stats
-from scipy.spatial.distance import pdist, squareform
 
 # Import custom libaries
 import sys
 sys.path.append('./data_io/')
+sys.path.append('./data_exploration')
 import data_io as io
-
-"""
-SEMIVARIAGRAM FUNCTIONS
-"""
-def SVh( P, h, bw ):
-    '''
-    Experimental semivariogram for a single lag
-    '''
-    pd = squareform( pdist( P[:,:2] ) )
-    N = pd.shape[0]
-    Z = list()
-    for i in range(N):
-        for j in range(i+1,N):
-            if( pd[i,j] >= h-bw )and( pd[i,j] <= h+bw ):
-                Z.append( ( P[i,2] - P[j,2] )**2.0 )
-    return np.sum( Z ) / ( 2.0 * len( Z ) )
-
-def SV( P, hs, bw ):
-    '''
-    Experimental variogram for a collection of lags
-    '''
-    sv = list()
-    for h in hs:
-        sv.append( SVh( P, h, bw ) )
-    sv = [ [ hs[i], sv[i] ] for i in range( len( hs ) ) if sv[i] > 0 ]
-    return np.array( sv ).T
-
-
+import semivariagram as sv
 
 """
 Project Info
@@ -72,8 +44,6 @@ raster.values[raster.values==-9999]=np.nan
 # restrict area to main LiDAR patch
 raster.values[2186:] = np.nan
 
-
-
 """
 #===============================================================================
 PART B: CREATE SEMIVARIAGRAM
@@ -81,28 +51,27 @@ Load the raster data and inventory data
 #-------------------------------------------------------------------------------
 """
 # Random sample points
-N_sample = 5000
-xx,yy=np.meshgrid(raster.coords['x'].values,raster.coords['y'].values)
-mask = np.isfinite(raster.values)
-P = np.zeros((N_sample,3))
-sample_idx = np.random.choice(np.arange(mask.sum()),N_sample,replace=False)
-P[:,0]=xx[mask][sample_idx]
-P[:,1]=yy[mask][sample_idx]
-P[:,2]=raster.values[mask][sample_idx]
-
+N_sample = 8000
 bandwidth = 20
-lags = np.arange(0,2000,bandwidth)
-semivariagram = SV(P,lags,bandwidth)
+llim=10
+ulim=2030
+semivar = sv.empirical_semivariagram_from_xarray(raster,N_sample,llim,ulim,bandwidth)
 
 """
 #===============================================================================
 PART C: PLOT SEMIVARIAGRAM
 #-------------------------------------------------------------------------------
 """
-df = pd.DataFrame({'lag':semivariagram[0],'semivariance':semivariagram[1]})
+df = pd.DataFrame({'lag':semivar[0],'semivariance':semivar[1],
+                    'fit':sv.fit_weibull_distribution_from_cdf(semivar[0],semivar[1],norm=False)})
 # Now plot up summaries according to the subset in question
 fig,ax = plt.subplots(nrows=1,ncols=1,figsize=[5,3])
-sns.scatterplot('lag','semivariance',data=df,ax=ax,s=2)
+sns.scatterplot('lag','semivariance',data=df,ax=ax)
+ax.plot(df['lag'],df['fit'],'-',color='red',data=df)
+ax.annotate('Effective scale = %.1f m' % sv.get_effective_scale(df['lag'],df['fit'],threshold=.95),
+                        xy=(0.95,0.05), xycoords='axes fraction',
+                        backgroundcolor='none',horizontalalignment='right',
+                        verticalalignment='bottom', fontsize=10)
 ax.set_xlabel('lag / m',fontsize=10)
 ax.set_ylabel('semivariance / (Mg ha$^{-1}$)$^2$',fontsize=10)
 
