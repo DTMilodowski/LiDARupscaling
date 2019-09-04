@@ -94,7 +94,6 @@ def fit_weibull_distribution_from_cdf(x,cdf,norm=True,p0=[]):
 # get the effective scale of the spatial autocorrelation
 def get_effective_scale(x,model,threshold=0.95):
     limit=threshold*np.max(model)
-    print(limit)
     x1 = float(np.max(x[model<limit]))
     y1 = float(model[x==x1])
     x2 = float(np.min(x[model>=limit]))
