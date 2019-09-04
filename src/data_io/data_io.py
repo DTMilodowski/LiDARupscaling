@@ -197,13 +197,6 @@ def load_predictors(site_id = 'kiuic', path2data = "/exports/csce/datastore/geos
         nodata.append(rasterio.open(ff).nodatavals[0])
         labels.append(ff.split('/')[-1].split('.')[0])
 
-    # Need a workaround as xr.concat is not behaving itself
-    """
-    sentinel = xr.concat([xr.open_rasterio(f) for f in sentinel_files],dim='band')
-    mask = sentinel[0].values!=nodata[0]
-    for ii in range(sentinel.shape[0]):
-        mask = mask & (sentinel[ii].values!=nodata[ii])
-    """
     forest = xr.open_rasterio('%s/%s_10_regridded.tif' % (path2mask,site_id)).values[0]
     mask=forest==1
     #forest = xr.open_rasterio('%s/%s_4_classes_regridded.tif' % (path2mask,site_id)).values[0]
