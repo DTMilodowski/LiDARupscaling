@@ -95,7 +95,11 @@ def fit_weibull_distribution_from_cdf(x,cdf,norm=True,p0=[]):
 def get_effective_scale(x,model,threshold=0.95):
     limit=threshold*np.max(model)
     print(limit)
-    scale = np.min(x[model>=limit])
+    x1 = float(np.max(x[model<limit]))
+    y1 = float(model[x==x1])
+    x2 = float(np.min(x[model>=limit]))
+    y2 = float(model[x==x2])
+    scale = x1+(x2-x1)*(limit-y1)/(y2-y1)
     return scale
 
 """
