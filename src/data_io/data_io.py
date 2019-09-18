@@ -203,6 +203,7 @@ def load_predictors(site_id = 'kiuic', path2data = "/exports/csce/datastore/geos
     #mask=np.any((forest==2,forest==3,forest==4),axis=0)
     sentinel = np.zeros((len(sentinel_files),rows,cols))
     for ii,ff in enumerate(sentinel_files):
+        #print(ff)
         sentinel[ii] = xr.open_rasterio(ff).values
         mask = mask & (sentinel[ii]!=nodata[ii])
         mask = mask & (sentinel[ii]>-3*10**38)
