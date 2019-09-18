@@ -43,7 +43,7 @@ import map_plots as mplt
 Project Info
 """
 site_id = 'kiuic'
-version = '006'
+version = '012'
 crs = ccrs.UTM('16N')
 path2alg = '../saved_models/'
 path2fig= '../figures/'
@@ -64,8 +64,8 @@ Apply fitted model across Sentinel scene
 predictors,target,landmask,labels=io.load_predictors()
 
 # Load rf models
-rf = joblib.load('%s%s_%s_rf_sentinel_lidar_agb_bayes_opt.pkl' % (path2alg,site_id,version))
-rf2 = joblib.load('%s%s_%s_rf_sentinel_lidar_agb_bayes_opt_residual.pkl' % (path2alg,site_id,version))
+rf = joblib.load('%s%s_%s_rfbc_sentinel_lidar_agb_bayes_opt.pkl' % (path2alg,site_id,version))
+rf2 = joblib.load('%s%s_%s_rfbc_sentinel_lidar_agb_bayes_opt_residual.pkl' % (path2alg,site_id,version))
 
 # Now the model has been fitted, we will predict the potential AGB across the
 # full dataset
