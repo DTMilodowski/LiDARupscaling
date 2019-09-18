@@ -263,6 +263,9 @@ rf = RandomForestRegressor(bootstrap=True,
             random_state=29,         # seed used by the random number generator
             )
 
+# Classic cal-val (note that this doesn't account for spatial dependency, so the
+# validation will be off)
+X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,test_size=0.25,random_state=23)
 # fit the calibration sample
 rf1,rf2 = rff.rfbc_fit(rf,X_train,y_train)
 y_train_rfbc = rff.rfbc_predict(rf1,rf2,X_train)
