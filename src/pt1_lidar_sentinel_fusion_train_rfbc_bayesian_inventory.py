@@ -263,6 +263,16 @@ rf = RandomForestRegressor(bootstrap=True,
             random_state=29,         # seed used by the random number generator
             )
 
+rf1,rf2 = rff.rfbc_fit(rf,X,y)
+y_rfbc = rff.rfbc_predict(rf1,rf2,X)
+# Save random forest model for future use
+rf_dict = {}
+rf_dict['rf1']=rf1
+rf_dict['rf2']=rf2
+joblib.dump(rf_dict,'%s%s_%s_rfbc_sentinel_lidar_agb_bayes_opt.pkl' % (path2alg,site_id,version))
+
+
+"""
 # Classic cal-val (note that this doesn't account for spatial dependency, so the
 # validation will be off)
 X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,test_size=0.25,random_state=23)
@@ -286,7 +296,7 @@ joblib.dump(rf_dict,'%s%s_%s_rfbc_sentinel_lidar_agb_bayes_opt.pkl' % (path2alg,
 # Plot cal-val
 fig1,axes = gplt.plot_cal_val_agb(y_train,y_train_rfbc,y_test,y_test_rfbc)
 fig1.savefig('%s%s_%s_cal_val_rfbc.png' % (path2fig,site_id,version))
-"""
+
 # Importances
 perm_rf1 = PermutationImportance(rf).fit(X_test, y_test)
 imp_df = pd.DataFrame(data = {'variable': labels,
