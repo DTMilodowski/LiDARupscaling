@@ -39,6 +39,7 @@ import matplotlib.pyplot as plt     # plotting package
 import seaborn as sns               # another useful plotting package
 import os
 from scipy import signal
+from scipy import spatial
 
 # Import some parts of the scikit-learn library
 from sklearn.ensemble import RandomForestRegressor
@@ -72,6 +73,7 @@ Project Info
 site_id = 'kiuic'
 version = '014'
 path2alg = '../saved_models/'
+path2data = "/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/"
 if(os.path.isdir(path2alg)==False):
     os.mkdir(path2alg)
 path2fig= '../figures/'
@@ -114,9 +116,9 @@ raster = io.load_geotiff(raster_file,option=1)
 raster.values[raster.values==-9999]=np.nan
 
 N_sample = 8000
-bandwidth = 20
+bandwidth = 0.05
 llim=0
-ulim=1000
+ulim=20
 p0=[200,0.8,1700]
 semivar = sv.empirical_semivariagram_from_xarray(raster,N_sample,llim,ulim,bandwidth)
 df = pd.DataFrame({'lag':semivar[0],'semivariance':semivar[1],
@@ -173,13 +175,20 @@ X_train={};y_train={}
 X_test={};y_test={}
 for iter in range(0,k):
     key='iter%i' % (k+1)
-    sample_rows = np.choice(row_data,N,replace=False)
-    sample_cols = np.choice(row_data,N,replace=False)
+    sample_rows = np.random.choice(row_data,N,replace=False)
+    sample_cols = np.random.choice(col_data,N,replace=False)
+
+    tree = spatial.cKDTree(np.asarray([sample_rows,sample_cols]).transpose())
+
 
     # Now generate masks to define calibration and validation datasets
-    calibration_mask = np.zeros((rows,cols))
-    calibration_mask[sample_rows,sample_cols]=1
-    validation_mask = validation_mask.copy()
+    validation_mask = np.zeros((rows,cols))
+    validation_mask[sample_rows,sample_cols]=1
+    calibration_mask = datamask.copy()
+
+    for ii in range(0,row_data.size):
+        row=row_data[ii]
+        col=col_data[ii]
 
     # 2D convolution against buffer with reflected boundary
     calibration_mask=signal.convolve2d(calibration_mask,buffer,mode='same',boundary='symm')
@@ -193,6 +202,27 @@ for iter in range(0,k):
     X_test[key] = predictors[mask,:][calibration_mask][mask]
     y_test[key] = target[validation_mask]
 
+pts,max_pts_per_tree = 10**6):
+    npts = pts.shape[0]
+    ntrees = int(np.ceil(npts/float(max_pts_per_tree)))
+    trees = []
+    starting_ids = []
+
+    for tt in range(0,ntrees):
+        i0=tt*max_pts_per_tree
+        i1 = (tt+1)*max_pts_per_tree
+        if i1 < pts.shape[0]:
+            trees.append(spatial.cKDTree(pts[i0:i1,0:2],leafsize=32,balanced_tree=True))
+        else:
+            trees.append(spatial.cKDTree(pts[i0:,0:2],leafsize=32,balanced_tree=True))
+        starting_ids.append(i0)
+
+        starting_ids = np.asarray(starting_ids,dtype='int')
+
+centre_x = np.mean(subplots[keys[ss]][pp][0:4,0])
+                centre_y = np.mean(subplots[keys[ss]][pp][0:4,1])
+                radius = np.sqrt(sample_res[ss]**2/2.)
+                ids = trees[0].query_ball_point([centre_x,centre_y], radius)
 
 """
 #===============================================================================
