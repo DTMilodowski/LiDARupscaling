@@ -37,7 +37,7 @@ PART A: LOAD DATA
 Load the raster data and inventory data
 #-------------------------------------------------------------------------------
 """
-raster_file = '%s/lidar/processed/kiuic_AGB_07-31-19_regridded.tif' % (path2data)
+raster_file = '%s/lidar/agb_maps/kiuic_AGB_07-31-19_regridded.tif' % (path2data)
 raster = io.load_geotiff(raster_file,option=1)
 raster.values[raster.values==-9999]=np.nan
 
