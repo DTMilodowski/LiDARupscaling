@@ -50,7 +50,7 @@ sns.set_style('darkgrid')
 Project Info
 """
 site_id = 'kiuic'
-version = '010'
+version = '015'
 #crs = ccrs.UTM('16N')
 path2alg = '../saved_models/'
 path2fig= '../figures/'
@@ -163,10 +163,11 @@ for ii,plot in enumerate(inventory):
         lidar_x.append(plot['geometry']['coordinates'][0])
         lidar_y.append(plot['geometry']['coordinates'][1])
     else:
-        other_agb_field.append(plot['properties']['AGB'])
-        other_agb_upscaled.append(upscaled_agb)
-        other_x.append(plot['geometry']['coordinates'][0])
-        other_y.append(plot['geometry']['coordinates'][1])
+        if plot['properties']['AGB']<320:
+            other_agb_field.append(plot['properties']['AGB'])
+            other_agb_upscaled.append(upscaled_agb)
+            other_x.append(plot['geometry']['coordinates'][0])
+            other_y.append(plot['geometry']['coordinates'][1])
 
     """
     # this code snippet locates nearest pixel. Not used
