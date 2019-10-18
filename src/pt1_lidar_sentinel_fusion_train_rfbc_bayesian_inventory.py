@@ -159,7 +159,7 @@ def f(params):
     #rf.fit(X,y)
     #agb_mod.values[landmask] = rf.predict(predictors)
     rf1,rf2 = rff.rfbc_fit(rf,X,y)
-    agb_mod.values[landmask] = rff.rfbc_predict(rf1,rf2,X)
+    agb_mod.values[landmask] = rff.rfbc_predict(rf1,rf2,predictors)
 
     # now loop through inventory points and compare AGB against model
     agb_model = []
@@ -311,7 +311,7 @@ var_imp = np.zeros(n_iter*len(label))
 for ii,drops_iter in enumerate(score_drops_test):
     var_imp[ii*len(label):(ii+1)*len_label] = drops_iter/base_score
 imp_df = pd.DataFrame(data = {'variable': var_labels,
-                              'permutation_importance': var_imp)
+                              'permutation_importance': var_imp})
 fig5,axes = gplt.plot_permutation_importances(imp_df)
 fig5.savefig('%s%s_%s_permutation_importances.png' % (path2fig,site_id,version))
 
