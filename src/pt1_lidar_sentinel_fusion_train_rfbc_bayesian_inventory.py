@@ -330,29 +330,4 @@ print("Calibration R^2 = %.02f" % cal_score)
 y_test_rfbc = rff.rfbc_predict(rf1,rf2,X_test)
 val_score = r2_score(y_test_rfbc,y_test)
 print("Validation R^2 = %.02f" % val_score)
-
-# Save random forest model for future use
-rf_dict = {}
-rf_dict['rf1']=rf1
-rf_dict['rf2']=rf2
-joblib.dump(rf_dict,'%s%s_%s_rfbc_sentinel_lidar_agb_bayes_opt.pkl' % (path2alg,site_id,version))
-
-# Plot cal-val
-fig1,axes = gplt.plot_cal_val_agb(y_train,y_train_rfbc,y_test,y_test_rfbc)
-fig1.savefig('%s%s_%s_cal_val_rfbc.png' % (path2fig,site_id,version))
-
-# Importances
-perm_rf1 = PermutationImportance(rf).fit(X_test, y_test)
-imp_df = pd.DataFrame(data = {'variable': labels,
-                              'permutation_importance': perm_rf1.feature_importances_,
-                              'gini_importance': rf.feature_importances_})
-fig5,axes = gplt.plot_importances(imp_df)
-fig5.savefig('%s%s_%s_importances.png' % (path2fig,site_id,version))
-
-perm_rf2 = PermutationImportance(rf2).fit(X_test, residuals_test)
-imp_residual_df = pd.DataFrame(data = {'variable': labels,
-                              'permutation_importance': perm_rf2.feature_importances_,
-                              'gini_importance': rf2.feature_importances_})
-fig5,axes = gplt.plot_importances(imp_residual_df)
-fig5.savefig('%s%s_%s_residual_importances.png' % (path2fig,site_id,version))
 """
