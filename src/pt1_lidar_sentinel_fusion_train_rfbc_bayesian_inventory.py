@@ -137,7 +137,7 @@ param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,400,1)),       
                 "max_features":scope.int(hp.quniform("max_features",int(n_predictors/4),n_predictors,1)),      # ***the maximum number of variables used in a given tree
                 "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,300,1)),    # ***The minimum number of samples required to be at a leaf node
                 "min_samples_split": scope.int(hp.quniform("min_samples_split",2,500,1)),  # ***The minimum number of samples required to split an internal node
-                "n_estimators":scope.int(hp.quniform("n_estimators",80,120,1)),          # ***Number of trees in the random forest
+                "n_estimators":scope.int(hp.quniform("n_estimators",80,500,1)),          # ***Number of trees in the random forest
                 "n_jobs":hp.choice("n_jobs",[20,20]),
                 "oob_score":hp.choice("oob_score",[True,True])
                 }
@@ -303,16 +303,17 @@ def r2_score(X,y):
 # (note spatial dependency not accounted for)
 X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,test_size=0.25,random_state=23)
 rf1,rf2 = rff.rfbc_fit(rf,X_train,y_train)
-base_score_test,score_drops_test = get_score_importances(r2_score,X_test,y_test,n_iter=n_iter)
+n_iter=5
+base_score,score_drops = get_score_importances(r2_score,X_test,y_test,n_iter=n_iter)
 
 # Plot importances
 var_labels = labels*n_iter
 var_imp = np.zeros(n_iter*len(label))
-for ii,drops_iter in enumerate(score_drops_test):
-    var_imp[ii*len(label):(ii+1)*len_label] = drops_iter/base_score
+for ii,drops_iter in enumerate(score_drops):
+    var_imp[ii*len(labels):(ii+1)*len(labels)] = drops_iter#/base_score
 imp_df = pd.DataFrame(data = {'variable': var_labels,
                               'permutation_importance': var_imp})
-fig5,axes = gplt.plot_permutation_importances(imp_df)
+fig5,axes = gplt.plot_permutation_importances(imp_df,show=False)
 fig5.savefig('%s%s_%s_permutation_importances.png' % (path2fig,site_id,version))
 
 """
