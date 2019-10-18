@@ -31,7 +31,7 @@ def rfbc_fit(rf1,X,y):
     # Note that this is more biased than the RF estimate
     y_new = 2*y_oob-y
     # Fit second random forest regression to predict y_new
-    rf2.fit(X,y_oob)
+    rf2.fit(X,y_new)
 
     return rf1,rf2
 
