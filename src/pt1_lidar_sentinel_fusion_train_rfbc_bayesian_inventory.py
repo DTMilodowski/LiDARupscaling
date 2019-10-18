@@ -41,6 +41,7 @@ from sklearn.externals import joblib
 from hyperopt import tpe, rand, Trials, fmin, hp, STATUS_OK, space_eval, STATUS_FAIL
 from hyperopt.pyll.base import scope
 from functools import partial
+from eli5.permutation_importance import get_score_importances
 
 import pickle
 
@@ -60,7 +61,7 @@ import utility
 Project Info
 """
 site_id = 'kiuic'
-version = '015'
+version = '016'
 path2data = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/'
 path2alg = '../saved_models/'
 if(os.path.isdir(path2alg)==False):
@@ -141,9 +142,9 @@ param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,400,1)),       
                 "oob_score":hp.choice("oob_score",[True,True])
                 }
 
-# define a function to quantify the objective function
+# Define a function to quantify the objective function
 def f(params):
-    global best_score
+    global best_mse
     global fail_count
 
     # check the hyperparameter set is sensible
@@ -155,8 +156,10 @@ def f(params):
 
     # template rf model for rfbc definition
     rf = RandomForestRegressor(**params)
-    rf.fit(X,y)
-    agb_mod.values[landmask] = rf.predict(predictors)
+    #rf.fit(X,y)
+    #agb_mod.values[landmask] = rf.predict(predictors)
+    rf1,rf2 = rff.rfbc_fit(rf,X,y)
+    agb_mod.values[landmask] = rff.rfbc_predict(rf1,rf2,X)
 
     # now loop through inventory points and compare AGB against model
     agb_model = []
@@ -165,14 +168,14 @@ def f(params):
             agb_model.append(utility.sample_raster_by_point_neighbourhood(plot,agb_mod,radius_1ha))
     temp1,temp2,r,temp3,temp4 = stats.linregress(agb_field,agb_model)
 
-    # trial ranked based on performance of validation of field data
-    rmse = np.sqrt( np.mean( (np.array(agb_field)-np.array(agb_model)) **2 ) )
-    score = r**2
+    # trial ranked based on performance of validation vs field data outside LiDAR survey
+    mse = np.mean( (np.array(agb_field)-np.array(agb_model)) **2 )
+    r2 = r**2
     # - if error reduced, then update best model accordingly
-    if score > best_score:
-        best_score = score
-        print('new best r^2: ', -best_score, '; best RMSE: ', rmse, params)
-    return {'loss': -score, 'status': STATUS_OK}
+    if mse > best_mse:
+        best_mse = mse
+        print('new best r^2: ', r2, '; best RMSE: ', np.sqrt(mse), params)
+    return {'loss': mse, 'status': STATUS_OK}
 
 trials=Trials()
 # Set algoritm parameters
@@ -180,7 +183,7 @@ trials=Trials()
 # - randomised search used to initialise (n_startup_jobs iterations)
 # - percentage of hyperparameter combos identified as "good" (gamma)
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
-max_evals_target = 300
+max_evals_target = 150
 spin_up_target = 30
 best_score = -np.inf
 fail_count=0
@@ -203,6 +206,15 @@ best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
 # Not every hyperparameter set will be accepted, so need to conitnue searching
 # until the required number of evaluations is met
 max_evals = max_evals_target+fail_count
+while (len(trials.trials)-fail_count)<max_evals_target:
+    print('\tTarget: %i; iterations: %i; failures: %i' % (max_evals_target,len(trials.trials),fail_count))
+    max_evals+=1
+    best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
+
+# Now repeat TPE search for another 50 iterations with a refined search window
+max_evals_target+=50
+max_evals = max_evals_target+fail_count
+algorithm = partial(tpe.suggest, n_startup_jobs=spin_up, gamma=0.25, n_EI_candidates=32)
 while (len(trials.trials)-fail_count)<max_evals_target:
     print('\tTarget: %i; iterations: %i; failures: %i' % (max_evals_target,len(trials.trials),fail_count))
     max_evals+=1
@@ -271,6 +283,37 @@ rf_dict['rf1']=rf1
 rf_dict['rf2']=rf2
 joblib.dump(rf_dict,'%s%s_%s_rfbc_sentinel_lidar_agb_bayes_opt.pkl' % (path2alg,site_id,version))
 
+
+"""
+#===============================================================================
+PART C: FEATURE IMPORTANCE
+- Feature importance calculated based on fraction of explained variance (i.e.
+  fractional drop in R^2) on random permutation of each predictor variable.
+- Five iterations, with mean and standard deviation reported and plotted.
+#-------------------------------------------------------------------------------
+"""
+# First define the score random_forest_functions as fractional decrease in
+# variance explained
+def r2_score(X,y):
+    y_rfbc = rff.rfbc_predict(rf1,rf2,X)
+    temp1,temp2,r,temp3,temp4 = stats.linregress(y,y_rfbc)
+    return r**2
+
+# test-train split to indicate generalised predictive importance
+# (note spatial dependency not accounted for)
+X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75,test_size=0.25,random_state=23)
+rf1,rf2 = rff.rfbc_fit(rf,X_train,y_train)
+base_score_test,score_drops_test = get_score_importances(r2_score,X_test,y_test,n_iter=n_iter)
+
+# Plot importances
+var_labels = labels*n_iter
+var_imp = np.zeros(n_iter*len(label))
+for ii,drops_iter in enumerate(score_drops_test):
+    var_imp[ii*len(label):(ii+1)*len_label] = drops_iter/base_score
+imp_df = pd.DataFrame(data = {'variable': var_labels,
+                              'permutation_importance': var_imp)
+fig5,axes = gplt.plot_permutation_importances(imp_df)
+fig5.savefig('%s%s_%s_permutation_importances.png' % (path2fig,site_id,version))
 
 """
 # Classic cal-val (note that this doesn't account for spatial dependency, so the
