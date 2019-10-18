@@ -135,8 +135,8 @@ print('Hyperparameter optimisation')
 rf = RandomForestRegressor(criterion="mse",bootstrap=True,oob_score=True,n_jobs=-1)
 param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,400,1)),              # ***maximum number of branching levels within each tree
                 "max_features":scope.int(hp.quniform("max_features",int(n_predictors/4),n_predictors,1)),      # ***the maximum number of variables used in a given tree
-                "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",2,300,1)),    # ***The minimum number of samples required to be at a leaf node
-                "min_samples_split": scope.int(hp.quniform("min_samples_split",3,500,1)),  # ***The minimum number of samples required to split an internal node
+                "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,300,1)),    # ***The minimum number of samples required to be at a leaf node
+                "min_samples_split": scope.int(hp.quniform("min_samples_split",2,500,1)),  # ***The minimum number of samples required to split an internal node
                 "n_estimators":scope.int(hp.quniform("n_estimators",80,120,1)),          # ***Number of trees in the random forest
                 "n_jobs":hp.choice("n_jobs",[20,20]),
                 "oob_score":hp.choice("oob_score",[True,True])
@@ -172,7 +172,7 @@ def f(params):
     mse = np.mean( (np.array(agb_field)-np.array(agb_model)) **2 )
     r2 = r**2
     # - if error reduced, then update best model accordingly
-    if mse > best_mse:
+    if mse < best_mse:
         best_mse = mse
         print('new best r^2: ', r2, '; best RMSE: ', np.sqrt(mse), params)
     return {'loss': mse, 'status': STATUS_OK}
@@ -185,7 +185,7 @@ trials=Trials()
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
 max_evals_target = 150
 spin_up_target = 30
-best_score = -np.inf
+best_mse = np.inf
 fail_count=0
 
 # Start with randomised search - setting this explicitly to account for some
