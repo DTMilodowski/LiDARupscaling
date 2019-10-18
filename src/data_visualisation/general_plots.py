@@ -156,15 +156,17 @@ def plot_importances(imp_df,show=True):
     return fig5,axes
 
 def plot_permutation_importances(imp_df,show=True):
-    fig5,axis= plt.subplots(nrows=1,ncols=1,figsize=[4,8],sharex=True)
-    sns.barplot(x='permutation_importance',y='variable',ci='sd',data=imp_df,ax=axis)
-    axes.annotate('permutation importance',
-                xy=(0.95,0.98), xycoords='axes fraction',backgroundcolor='none',
-                horizontalalignment='right', verticalalignment='top')
+    fig5,axis= plt.subplots(nrows=1,ncols=1,figsize=[6,8],sharex=True)
+    sns.barplot(x='permutation_importance',y='variable',ci='sd',data=imp_df,ax=axis,color='0.5')
+    #axis.annotate('permutation importance',
+    #            xy=(0.95,0.98), xycoords='axes fraction',backgroundcolor='none',
+    #            horizontalalignment='right', verticalalignment='top')
+    axis.set_ylabel('')
+    axis.set_xlabel('Permutation importance')
     fig5.tight_layout()
     if show:
         fig5.show()
-    return fig5,axes
+    return fig5,axis
 
 # Plot partial dependencies
 def plot_partial_dependencies_simple(rf, X, x_label=None, y_label=None,
