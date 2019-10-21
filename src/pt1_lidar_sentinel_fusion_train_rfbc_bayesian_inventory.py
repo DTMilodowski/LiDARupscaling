@@ -252,7 +252,7 @@ for pp in parameters:
 ii=0
 for tt in trials.trials:
     if tt['result']['status']=='ok':
-        trace['scores'][ii] = -tt['result']['loss']
+        trace['scores'][ii] = tt['result']['loss']
         for pp in parameters:
             trace[pp][ii] = tt['misc']['vals'][pp][0]
         ii+=1
@@ -268,7 +268,7 @@ fig3.savefig('%s%s_%s_hyperpar_search_trace_rfbc.png' % (path2fig,site_id,versio
 
 # Take best hyperparameter set and apply cal-val on full training set
 print('Applying cal-val to full training set and withheld validation set')
-idx = np.argsort(trace['scores'])[-1]
+idx = np.argmin(trace['scores'])
 best_params = trials.trials[idx]['misc']['vals']
 rf = RandomForestRegressor(bootstrap=True,
             criterion='mse',           # criteria used to choose split point at each node
