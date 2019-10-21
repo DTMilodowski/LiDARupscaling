@@ -134,7 +134,7 @@ Cal-val figures
 print('Hyperparameter optimisation')
 rf = RandomForestRegressor(criterion="mse",bootstrap=True,oob_score=True,n_jobs=-1)
 param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,400,1)),              # ***maximum number of branching levels within each tree
-                "max_features":scope.int(hp.quniform("max_features",int(n_predictors/4),n_predictors,1)),      # ***the maximum number of variables used in a given tree
+                "max_features":hp.uniform("max_features",.1,1),      # ***the maximum number of variables used in a given tree
                 "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,300,1)),    # ***The minimum number of samples required to be at a leaf node
                 "min_samples_split": scope.int(hp.quniform("min_samples_split",2,500,1)),  # ***The minimum number of samples required to split an internal node
                 "n_estimators":scope.int(hp.quniform("n_estimators",80,500,1)),          # ***Number of trees in the random forest
@@ -228,18 +228,27 @@ print(best)
 print('saving trials to file for future reference')
 pickle.dump(trials, open('%s%s_%s_rf_sentinel_lidar_agb_trials_rfbc.p' % (path2alg,site_id,version), "wb"))
 # open with:
-# trials = pickle.load(open('%s%s_%s_rf_sentinel_lidar_agb_trials.p' % (path2alg,site_id,version), "rb"))
+# trials = pickle.load(open('%s%s_%s_rf_sentinel_lidar_agb_trials_rfbc.p' % (path2alg,site_id,version), "rb"))
 
 # plot summary of optimisation runs
 print('Basic plots summarising optimisation results')
 parameters = ['n_estimators','max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split']
 
+# double check the number of accepted parameter sets
+success_count = 0
+fail_count = 0
+for tt in trials.trials:
+    if tt['result']['status']=='ok':
+        success_count+=1
+    else:
+        fail_count+=1
+
 
 trace = {}
-trace['scores'] = np.zeros(max_evals_target)
-trace['iteration'] = np.arange(max_evals_target)+1
+trace['scores'] = np.zeros(success_count)
+trace['iteration'] = np.arange(success_count)+1
 for pp in parameters:
-    trace[pp] = np.zeros(max_evals_target)
+    trace[pp] = np.zeros(success_count)
 ii=0
 for tt in trials.trials:
     if tt['result']['status']=='ok':
