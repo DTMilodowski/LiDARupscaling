@@ -2,6 +2,12 @@
 mlr_ci_pi
 -----------------------------------------------------------------------
 multiple linear regression with confidence and prediction intervals
+Model described by equation:
+y = X.b + err
+where y is the target (dependent variable)
+X is the predictors (independent variables)
+b is the coefficients
+err is the error term (due residual variance not accounted for in model)
 """
 import numpy as np
 import pandas as pd
