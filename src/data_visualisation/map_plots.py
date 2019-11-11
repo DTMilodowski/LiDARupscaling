@@ -60,8 +60,6 @@ def plot_xarray_to_axis(xarr, ax, vmin=None, vmax=None, cmap='viridis',
     if vmax is None:
         vmax =np.nanmax(xarr)
 
-    fig, axis = plt.subplots(nrows=1, ncols=1, figsize=(figsize_x,figsize_y),
-                   subplot_kw=subplot_kw)
     if add_colorbar:
         extend = 'neither'
         if vmin > np.nanmin(xarr.values):
@@ -75,7 +73,7 @@ def plot_xarray_to_axis(xarr, ax, vmin=None, vmax=None, cmap='viridis',
         xarr.plot.imshow(ax=axis, vmin=vmin, vmax=vmax, cmap=cmap, add_colorbar=add_colorbar,
                     extend=extend, cbar_kwargs=cbar_kwargs,transform = subplot_kw['projection'])
     else:
-        xarr.plot.imshow(ax=axis, vmin=vmin, vmax=vmax, cmap=cmap, add_colorbar=add_colorbar,transform = subplot_kw['projection'])
+        xarr.plot.imshow(ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, add_colorbar=add_colorbar,transform = subplot_kw['projection'])
     axis.set_aspect("equal")
     axis.set_title(title,fontsize=16)
     return 0
