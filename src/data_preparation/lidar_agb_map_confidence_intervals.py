@@ -164,7 +164,7 @@ PART C: PLOT LIDAR AGB AND UNCERTAINTY ESTIMATE AND WRITE TO GEOTIFF
 """
 figure_name = '%s%s_lidar_agb_prediction_interval.png' % (path2fig,site_id,version)
 figsize = (8,6)
-fig,axes = plt.subplots(nrows=1, ncols=2, figsize=figsize)
+fig,axes = plt.subplots(nrows=1, ncols=2, figsize=figsize, subplot_kw = {'projection':crs})
 mplt.plot_xarray_to_axis(agb_array, axes[0], vmin=0, vmax=250,
                     add_colorbar=True, cbar_kwargs={'label': 'AGB / Mg ha$^{-1}$',
                     'orientation':'horizontal'}, subplot_kw = {'projection':crs})
