@@ -31,6 +31,7 @@ Other things to specify:
 """
 import numpy as np                  # standard package for scientific computing
 import xarray as xr                 # xarray geospatial package
+import cartopy.crs as ccrs          # map projections
 import pandas as pd                 # useful for dataframes and integration with stats
 from statsmodels.formula.api import ols # ordinary least squares regression
 from scipy import stats             # statistics module
@@ -51,31 +52,30 @@ import random_forest_functions as rff
 """
 Project Info
 """
-path2field = '' # specify location of field data
-calibration_data_file = 'calibration_data_file.csv' # the calibration data
+site_id = 'kiuic'
+crs = ccrs.UTM('16N')
+path2fig= '../../figures/'
+path2output = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/lidar/error_map/'
+
+path2field = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/field_inventory/' # specify location of field data
+calibration_data_file = 'agb_carto_gliht_tnc_RF_filtered.csv' # the calibration data
 
 # specify the headers to use (case sensitive!)
 plot_ID = 'plot_ID'
 plot_AGB = 'plot_AGB'
-metric_1 = 'lidar_metric_1' # lidar variable #1
-metric_2 = 'lidar_metric_2' # lidar variable #2
-metric_3 = 'lidar_metric_3' # lidar variable #3
+metric_1 = 'ARA4' # lidar variable #1
+metric_2 = 'ElevP20' # lidar variable #2
+metric_3 = 'PFRAM' # lidar variable #3
 
 # raster data to be loaded in
-path2raster = '' # specify path of raster data
-lidar_raster_1 = 'lidar_raster_1.tif' # raster with lidar variable #1
-lidar_raster_2 = 'lidar_raster_2.tif' # raster with lidar variable #2
-lidar_raster_3 = 'lidar_raster_3.tif' # raster with lidar variable #3
+path2raster = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/lidar/variables/' # specify path of raster data
+lidar_raster_1 = 'ARA4_%s.tif' % site_id # raster with lidar variable #1
+lidar_raster_2 = 'ElevP20_%s.tif' % site_id # raster with lidar variable #2
+lidar_raster_3 = 'PFRAM_%s.tif' % site_id # raster with lidar variable #3
 
 # specify desired confidence level
 confidence_level = 0.95
 alpha = 1-confidence_level
-
-# other information
-site_id = 'kiuic'
-crs = ccrs.UTM('16N')
-path2fig= '../../figures/'
-path2output = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/lidar_agb/'
 
 if(os.path.isdir(path2output)==False):
     os.mkdir(path2output)
@@ -123,9 +123,11 @@ Apply estimates across pixels with LiDAR data
 #-------------------------------------------------------------------------------
 """
 # load in raster data
-raster_1 = xr.open_rasterio(lidar_raster_1)[0]
-raster_2 = xr.open_rasterio(lidar_raster_2)[0]
-raster_3 = xr.open_rasterio(lidar_raster_3)[0]
+raster_1 = xr.open_rasterio('%s%s' % (path2raster,lidar_raster_1))[0]
+raster_2 = xr.open_rasterio('%s%s' % (path2raster,lidar_raster_2))[0]
+raster_3 = xr.open_rasterio('%s%s' % (path2raster,lidar_raster_3))[0]
+for raster in [raster_1,raster_2,raster_3]:
+    raster.values[raster.values<-3e38] = np.nan
 mask = np.all((np.isfinite(raster_1.values),np.isfinite(raster_2.values),np.isfinite(raster_3.values)),axis=0)
 
 n = mask.sum()
