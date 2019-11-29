@@ -284,5 +284,8 @@ def plot_hyperparameter_search_trace(df,parameters):
         sns.scatterplot(x='iteration',y=val,data=df,marker='o',hue='scores',
                     palette=cmap,legend=False,ax=axes[i//2,i%2])
         axes[i//2,i%2].set_title(val)
+    sns.scatterplot(x='iteration',y='scores',data=df,marker='o',hue='scores',
+                    palette=cmap,legend=False,ax=axes[2,1])
+    axes[2,1].set_title('Cross-validation score (MSE)')
     plt.tight_layout()
     return fig,axes
