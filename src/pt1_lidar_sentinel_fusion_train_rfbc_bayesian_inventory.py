@@ -37,6 +37,9 @@ from sklearn.model_selection import train_test_split, KFold
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.externals import joblib
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 # immport hyperopt library
 from hyperopt import tpe, rand, Trials, fmin, hp, STATUS_OK, space_eval, STATUS_FAIL
 from hyperopt.pyll.base import scope
@@ -61,7 +64,7 @@ import utility
 Project Info
 """
 site_id = 'kiuic'
-version = '016'
+version = '017'
 path2data = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/'
 path2alg = '../saved_models/'
 if(os.path.isdir(path2alg)==False):
@@ -97,8 +100,6 @@ print(labels)
 
 # Keep only areas for which we have biomass estimates
 mask = np.isfinite(target[landmask])
-X = predictors[mask,:]
-y = target[landmask][mask]
 
 # filter out inventory points within the lidar survey so that validation is
 # independent, thus avoiding major autocorrelation issues
@@ -123,6 +124,13 @@ for plot in inventory:
                 use_inventory.append(False)
         else:
             use_inventory.append(False)
+
+# PCA analysis to reduce dimensionality of predictor variables
+pca = make_pipeline(StandardScaler(),PCA(n_components=0.999))
+pca.fit(predictors)
+pca_predictors = pca.transform(predictors)
+X = pca.transform(predictors[mask,:])
+y = target[landmask][mask]
 
 """
 #===============================================================================
@@ -159,7 +167,7 @@ def f(params):
     #rf.fit(X,y)
     #agb_mod.values[landmask] = rf.predict(predictors)
     rf1,rf2 = rff.rfbc_fit(rf,X,y)
-    agb_mod.values[landmask] = rff.rfbc_predict(rf1,rf2,predictors)
+    agb_mod.values[landmask] = rff.rfbc_predict(rf1,rf2,pca_predictors)
 
     # now loop through inventory points and compare AGB against model
     agb_model = []
@@ -183,8 +191,8 @@ trials=Trials()
 # - randomised search used to initialise (n_startup_jobs iterations)
 # - percentage of hyperparameter combos identified as "good" (gamma)
 # - number of sampled candidates to calculate expected improvement (n_EI_candidates)
-max_evals_target = 150
-spin_up_target = 30
+max_evals_target = 200
+spin_up_target = 50
 best_mse = np.inf
 fail_count=0
 
@@ -198,11 +206,15 @@ while (len(trials.trials)-fail_count)<spin_up_target:
     spin_up+=1
     best = fmin(f, param_space, algo=rand.suggest, max_evals=spin_up, trials=trials)
 
+print('randomised search complete; saving trials to file for future reference')
+pickle.dump(trials, open('%s%s_%s_rf_sentinel_lidar_agb_trials_rfbc.p' % (path2alg,site_id,version), "wb"))
+
 # Now do the TPE search
 print("Starting TPE search")
 max_evals = max_evals_target+fail_count
 algorithm = partial(tpe.suggest, n_startup_jobs=spin_up, gamma=0.15, n_EI_candidates=80)
 best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
+
 # Not every hyperparameter set will be accepted, so need to conitnue searching
 # until the required number of evaluations is met
 max_evals = max_evals_target+fail_count
@@ -211,8 +223,11 @@ while (len(trials.trials)-fail_count)<max_evals_target:
     max_evals+=1
     best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
 
-# Now repeat TPE search for another 50 iterations with a refined search window
-max_evals_target+=50
+print('first phase of TPE search complete; saving trials to file for future reference')
+pickle.dump(trials, open('%s%s_%s_rf_sentinel_lidar_agb_trials_rfbc.p' % (path2alg,site_id,version), "wb"))
+
+# Now repeat TPE search for another 200 iterations with a refined search window
+max_evals_target+=200
 max_evals = max_evals_target+fail_count
 algorithm = partial(tpe.suggest, n_startup_jobs=spin_up, gamma=0.25, n_EI_candidates=32)
 while (len(trials.trials)-fail_count)<max_evals_target:
@@ -225,7 +240,7 @@ print('best:')
 print(best)
 
 # save trials for future reference
-print('saving trials to file for future reference')
+print('TPE search complete; saving trials to file for future reference')
 pickle.dump(trials, open('%s%s_%s_rf_sentinel_lidar_agb_trials_rfbc.p' % (path2alg,site_id,version), "wb"))
 # open with:
 # trials = pickle.load(open('%s%s_%s_rf_sentinel_lidar_agb_trials_rfbc.p' % (path2alg,site_id,version), "rb"))
@@ -273,7 +288,7 @@ best_params = trials.trials[idx]['misc']['vals']
 rf = RandomForestRegressor(bootstrap=True,
             criterion='mse',           # criteria used to choose split point at each node
             max_depth= int(best_params['max_depth'][0]),            # ***maximum number of branching levels within each tree
-            max_features=int(best_params['max_features'][0]),       # ***the maximum number of variables used in a given tree
+            max_features=best_params['max_features'][0],       # ***the maximum number of variables used in a given tree
             max_leaf_nodes=None,       # the maximum number of leaf nodes per tree
             min_impurity_split=None,   # threshold impurity within an internal node before it will be split
             min_samples_leaf=int(best_params['min_samples_leaf'][0]),       # ***The minimum number of samples required to be at a leaf node
@@ -316,8 +331,11 @@ n_iter=5
 base_score,score_drops = get_score_importances(r2_score,X_test,y_test,n_iter=n_iter)
 
 # Plot importances
+labels = []
+for ii in range(0,X_test.shape[1]):
+    labels.append('PC%s' % str(ii+1).zfill(2))
 var_labels = labels*n_iter
-var_imp = np.zeros(n_iter*len(label))
+var_imp = np.zeros(n_iter*len(labels))
 for ii,drops_iter in enumerate(score_drops):
     var_imp[ii*len(labels):(ii+1)*len(labels)] = drops_iter#/base_score
 imp_df = pd.DataFrame(data = {'variable': var_labels,
