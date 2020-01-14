@@ -33,6 +33,7 @@ def sample_raster_by_polygon(raster,polygon,x_dim='x',y_dim='y',label = None):
     Y = raster[y_dim].values
     dX = X[1]-X[0]
     dY = Y[1]-Y[0]
+    rad = np.sqrt(2.*max((dX/2.)**2,(dY/2.)**2))
 
     if len(raster.values.shape)==2:
         bands = 1
@@ -69,12 +70,18 @@ def sample_raster_by_polygon(raster,polygon,x_dim='x',y_dim='y',label = None):
             # calculate the intersection fraction
             in_polygon[rr,cc] = pixel.intersection(polygon).area/pixel.area
 
+    # calculate the weighted average
+    weighted_average = np.zeros(bands)*np.nan
+    for bb in bands:
+        weighted_average[bb] = np.nansum(raster_sub[bb]*in_plot)/np.nansum(in_neighbourhood)
+
     results={}
     results['id'] = label
     results['weights']=in_plot.copy()
     results['raster_values']=raster_sub.copy()
     results['x']=X_sub.copy()
     results['y']=Y_sub.copy()
+    results['weighted_average'] = weighted_average
 
     return results
 
@@ -93,7 +100,7 @@ Returns:
   the raster values at these pixels and the corresponding weights, and an
   identifying label
 """
-def sample_raster_by_polygon(raster,point,radius,x_dim='x',y_dim='y',label = None):
+def sample_raster_by_point_neighbourhood(raster,point,radius,x_dim='x',y_dim='y',label = None):
 
     neighbourhood = point.buffer(radius)
 
@@ -104,6 +111,7 @@ def sample_raster_by_polygon(raster,point,radius,x_dim='x',y_dim='y',label = Non
     Y = raster[y_dim].values
     dX = X[1]-X[0]
     dY = Y[1]-Y[0]
+    rad = np.sqrt(2.*max((dX/2.)**2,(dY/2.)**2))
 
     if len(raster.values.shape)==2:
         bands = 1
@@ -140,11 +148,18 @@ def sample_raster_by_polygon(raster,point,radius,x_dim='x',y_dim='y',label = Non
             # calculate the intersection fraction
             in_neighbourhood[rr,cc] = pixel.intersection(neighbourhood).area/pixel.area
 
+    # calculate the weighted average
+    weighted_average = np.zeros(bands)*np.nan
+    for bb in bands:
+        weighted_average[bb] = np.nansum(raster_sub[bb]*in_neighbourhood)/np.nansum(in_neighbourhood)
+
+
     results={}
     results['id'] = label
     results['weights']=in_neighbourhood.copy()
     results['raster_values']=raster_sub.copy()
     results['x']=X_sub.copy()
     results['y']=Y_sub.copy()
-
+    results['weighted_average'] = weighted_average
+    
     return results
