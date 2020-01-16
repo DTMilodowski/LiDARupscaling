@@ -84,12 +84,53 @@ COVER_residual = COVER-COVER_
 
 # fit multivariate model
 import pandas as pd
+import seaborn as sns
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
+from statsmodels.stats.outliers_influence import summary_table
 
 cal_data = pd.DataFrame({'AGB':AGB,'TCH':TCH,'COVER_res':COVER_residual,
                         'lnAGB':np.log(AGB),'lnTCH':np.log(TCH),
                         'lnCOVER_res':np.log(COVER_residual)})
 ols = smf.ols('AGB ~ TCH ',data=cal_data)
 results = ols.fit()
+st, fit_data, ss2 = summary_table(results)
+fittedvalues = fit_data[:,2]
+predict_mean_se  = fit_data[:,3]
+predict_mean_ci_low, predict_mean_ci_upp = fit_data[:,4:6].T
+predict_ci_low, predict_ci_upp = fit_data[:,6:8].T
+
 print(results.summary())
+
+"""
+Plot calibrated model against inventory
+"""
+sns.set()
+cal_df = pd.DataFrame({'mod':fittedvalues,'obs':AGB,
+                        'predict_ci_low':predict_ci_low,
+                        'predict_ci_upp':predict_ci_upp})
+# Now plot up summaries according to the subset in question
+fig,ax = plt.subplots(nrows=1,ncols=1,figsize=[4,4])
+
+ax.plot([0,cal_df['obs'].max()],[0,cal_df['obs'].max()],':',color='0.7')
+#ax.errorbar(cal_df['obs'],cal_df['mod'],
+            #yerr=(cal_df['mod']-cal_df['predict_ci_low'],cal_df['predict_ci_upp']-cal_df['mod']),
+            #color='0.25',linewidth=0.5,linestyle='none')
+ax.plot(cal_df['obs'],cal_df['mod'],'.',color='black')
+
+RMSE = np.sqrt(np.mean((cal_df['mod']-cal_df['obs'])**2))
+
+ax.annotate('R$^2$=%.2f\nRMSE=%.1f' % (results.rsquared_adj,RMSE), xy=(0.95,0.05),
+        xycoords='axes fraction', backgroundcolor='none',ha='right',va='bottom',
+        fontsize=10)
+
+ax.set_xlabel('AGB$_{LiDAR}$ / Mg ha$^{-1}$',fontsize=10)
+ax.set_xlabel('AGB$_{inventory}$ / Mg ha$^{-1}$',fontsize=10)
+ax.set_aspect('equal')
+
+#ax.set_ylim(bottom=0)
+#ax.set_xlim(left=0)
+
+fig.tight_layout()
+#fig.savefig('%s%s_%s_inventory_comparison.png' % (path2fig,site_id,version))
+fig.show()
