@@ -62,7 +62,7 @@ def sample_raster_by_polygon(raster,polygon,x_dim='x',y_dim='y',label = None):
 
         cols_sub = x_mask.sum()
         rows_sub = y_mask.sum()
-        raster_sub = np.zeros((rows_sub,cols_sub,bands))
+        raster_sub = np.zeros((bands,rows_sub,cols_sub))
         for bb in range(0,bands):
             raster_sub[bb,:,:] = raster[bb,:,:][mask]
 
@@ -77,7 +77,7 @@ def sample_raster_by_polygon(raster,polygon,x_dim='x',y_dim='y',label = None):
 
         # calculate the weighted average
         weighted_average = np.zeros(bands)*np.nan
-        for bb in bands:
+        for bb in range(0,bands):
             weighted_average[bb] = np.nansum(raster_sub[bb]*in_plot)/np.nansum(in_neighbourhood)
 
         results={}
