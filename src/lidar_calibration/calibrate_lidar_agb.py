@@ -102,15 +102,15 @@ axes[0].set_title('gliht LiDAR vs. inventory AGB')
 axes[0].set_xlabel('mean TCH / m')
 axes[0].set_ylabel('field AGB / Mg ha$^{-1}$')
 
-im1 = axes[1].imshow(chm_results['20']['raster_values'][0],vmin=0,vmax=15)
+im1 = axes[1].imshow(chm_results['1']['raster_values'][0],vmin=0,vmax=23)
 plt.colorbar(im1,orientation='horizontal',ax=axes[1])
-im2 = axes[2].imshow(chm_results['27']['raster_values'][0],vmin=0,vmax=15)
+im2 = axes[2].imshow(chm_results['27']['raster_values'][0],vmin=0,vmax=23)
 plt.colorbar(im2,orientation='horizontal',ax=axes[2])
-im2 = axes[3].imshow(chm_results['3']['raster_values'][0],vmin=0,vmax=15)
+im2 = axes[3].imshow(chm_results['9']['raster_values'][0],vmin=0,vmax=23)
 plt.colorbar(im2,orientation='horizontal',ax=axes[3])
-axes[1].set_title('plot 20; AGB = %.2f Mg/ha' % inventory_AGB['20'])
-axes[2].set_title('plot 27; AGB = %.2f Mg/ha' % inventory_AGB['27'])
-axes[3].set_title('plot 3; AGB = %.2f Mg/ha' % inventory_AGB['3'])
+axes[1].set_title('plot 1; AGB = %.1f Mg/ha' % inventory_AGB['1'])
+axes[2].set_title('plot 27; AGB = %.1f Mg/ha' % inventory_AGB['27'])
+axes[3].set_title('plot 9; AGB = %.1f Mg/ha' % inventory_AGB['9'])
 
 fig.show()
 fig.savefig('example_of_plot_query.png')
@@ -122,9 +122,9 @@ COVER_residual = COVER-COVER_
 
 # fit multivariate model
 cal_data = pd.DataFrame({'AGB':AGB,'TCH':TCH,'COVER_res':COVER_residual,
-                        'lnAGB':np.log(AGB),'lnTCH':np.log(TCH),
+                        'lnAGB':np.log(AGB),'lnTCH':np.log(TCH),'lnCOVER':np.log(COVER),
                         'lnCOVER_res':np.log(COVER_residual)})
-ols = smf.ols('lnAGB ~ lnTCH ',data=cal_data)
+ols = smf.ols('lnAGB ~ lnTCH*lnCOVER_res ',data=cal_data)
 results = ols.fit()
 st, fit_data, ss2 = summary_table(results)
 fittedvalues = fit_data[:,2]
@@ -166,3 +166,30 @@ ax.set_aspect('equal')
 fig.tight_layout()
 #fig.savefig('%s%s_%s_inventory_comparison.png' % (path2fig,site_id,version))
 fig.show()
+
+fig,fig_axes = plt.subplots(nrows=2,ncols=3,figsize=[12,7])
+axes=fig_axes.flatten()
+axes[0].plot([0,cal_df['obs'].max()],[0,cal_df['obs'].max()],':',color='0.7')
+axes[0].plot(cal_df['mod'],cal_df['obs'],'.',color='black')
+axes[0].plot(cal_df['mod'][1],cal_df['obs'][1],'.',color='#bc1655')
+axes[0].annotate('1',xy=(cal_df['mod'][1],cal_df['obs'][1]),color='#bc1655')
+#axes[0].plot(TCH,AGB,'.')
+axes[0].set_title('LiDAR AGB vs. inventory AGB')
+axes[0].set_xlabel('LiDAR AGB / Mg ha$^{-1}$')
+axes[0].set_ylabel('field AGB / Mg ha$^{-1}$')
+axes[0].set_aspect('equal')
+
+plots_to_plot = ['1','9','15','20','2']
+for ii,plot_id in enumerate(plots_to_plot):
+    im = axes[ii+1].imshow(chm_results[plot_id]['raster_values'][0],vmin=0,vmax=23)
+    plt.colorbar(im,orientation='vertical',ax=axes[ii+1],extend='max',
+                label='height / m', shrink=0.667,aspect=20*0.667)
+    axes[ii+1].set_title('plot %s; AGB = %.1f Mg/ha' % (plot_id,inventory_AGB[plot_id]))
+    axes[0].plot(cal_df['mod'][ID==plot_id],cal_df['obs'][ID==plot_id],'.',color='#bc1655')
+    axes[0].annotate(plot_id,
+                    xy=(cal_df['mod'][ID==plot_id],cal_df['obs'][ID==plot_id]),
+                    color='#bc1655')
+
+fig.show()
+fig.tight_layout()
+fig.savefig('example_of_plot_query.png')
