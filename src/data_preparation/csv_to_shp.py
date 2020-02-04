@@ -10,7 +10,8 @@ def is_number(s):
     except ValueError:
         return False
 
-csvfile = '../../data/field_calibration/Kiuic_AGB_2018_LiDAR.csv'
+#csvfile = '../../data/field_calibration/Kiuic_AGB_2018_LiDAR.csv'
+csvfile = '../../data/field_calibration/Kiuic_400_subplots.csv'
 outfile = csvfile[:-4]+'.shp'
 coord_x = 'x'
 coord_y = 'y'
