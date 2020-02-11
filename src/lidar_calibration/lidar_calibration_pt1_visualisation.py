@@ -4,6 +4,7 @@ lidar_calibration_pt1_visualisation.py
 Collate the field and LiDAR TCH data and visualise the relationship between
 canopy height and AGB for the plots. Produces a six panel figure, the TCH-AGB
 relationship and five plots from the dataset.
+D.T.Milodowski
 """
 import numpy as np
 import xarray as xr
@@ -138,10 +139,11 @@ for plot in chm_results.keys():
     if chm_results[id]['status']=='PASS':
         if chm_results[id]['weighted_average']>0:
             if np.sum(np.isnan(chm_results[id]['raster_values'][0])*chm_results[id]['weights'])<0.05*np.sum(chm_results[id]['weights']):
+                weights = chm_results[id]['weights']/np.sum(np.isfinite(chm_results[id]['raster_values'][0].values)*chm_results[id]['weights'])
                 ID.append(id)
                 AGB.append(inventory_AGB[id])
                 TCH.append(chm_results[id]['weighted_average'][0])
-                COVER.append(np.sum((chm_results[id]['raster_values'][0].values>=gap_ht)*chm_results[id]['weights'])/np.sum(np.isfinite(chm_results[id]['raster_values'][0].values*chm_results[id]['weights'])))
+                COVER.append(np.sum((chm_results[id]['raster_values'][0].values>=gap_ht)*weights))
                 NODATA.append(np.mean(~np.isfinite(chm_results[id]['raster_values'][0].values)))
 
 # Convert to np arrays for conditional indexing convenience
