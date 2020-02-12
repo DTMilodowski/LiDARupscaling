@@ -11,7 +11,7 @@ def is_number(s):
         return False
 
 #csvfile = '../../data/field_calibration/Kiuic_AGB_2018_LiDAR.csv'
-csvfile = '../../data/field_calibration/Kiuic_400_subplots.csv'
+csvfile = '../../data/field_calibration/Kiuic_400_live_trees.csv'
 outfile = csvfile[:-4]+'.shp'
 coord_x = 'x'
 coord_y = 'y'
