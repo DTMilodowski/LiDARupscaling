@@ -264,3 +264,20 @@ for ii,plot_id in enumerate(plots_to_plot):
 fig.tight_layout()
 fig.savefig('%slidar_TCH_vs_field_AGB_400m_after_mc.png' % path2fig)
 fig.show()
+
+
+# Plot the figure with montecarlo postion errors
+fig,ax = plt.subplots(nrows=1,ncols=1,figsize=[6,6])
+ax.plot(MEAN,AGB,'.',color='black')
+#axes[0].errorbar(MEAN,AGB,xerr=SD,
+#                    marker='',linestyle='',color='0.5',linewidth=0.5)
+ax.errorbar(MEAN,AGB,xerr=(MEAN-CI95_l,CI95_u-MEAN),
+                    marker='',linestyle='',color='0.67',linewidth=0.5)
+ax.errorbar(MEAN,AGB,xerr=(MEAN-CI50_l,CI50_u-MEAN),
+                    marker='',linestyle='',color='0.33',linewidth=0.75)
+ax.set_title('TCH vs. inventory AGB')
+ax.set_xlabel('mean TCH / m')
+ax.set_ylabel('field AGB / Mg ha$^{-1}$')
+fig.tight_layout()
+fig.savefig('%slidar_TCH_vs_field_AGB_400m_after_mc_single_panel.png' % path2fig)
+fig.show()
