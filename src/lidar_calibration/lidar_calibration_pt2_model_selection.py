@@ -18,7 +18,6 @@ import statsmodels.formula.api as smf
 from statsmodels.stats.outliers_influence import summary_table
 from sklearn.model_selection import LeaveOneOut
 
-import fiona
 import stats_tools as st
 
 import sys
@@ -192,7 +191,7 @@ print(results.summary())
 
 if log_fit:
     CF = st.calculate_baskervilleCF(cal_data['lnAGB'],fittedvalues)
-    fittedvalues = CF*fittedvalues
+    fittedvalues = CF*np.exp(fittedvalues)
 
 """
 Plot calibrated model against inventory
