@@ -17,33 +17,37 @@ import matplotlib.patches as mpatches
 import fiona
 from shapely.geometry import Point, Polygon
 import geospatial_tools as gst
+import stats_tools as st
+
+import sys
+sys.path.append('../data_io')
+import LiDAR_io as lidar
+import LiDAR_tools as lidar_tools
 
 import gc
 
 # CHANGE THIS STUFF
 # Some file names - shapefiles and rasters should be in a projected coordinate system (i.e. UTM)
-inventory_file = '../../data/lidar_calibration/Kiuic_400_live_trees.shp'
+las_file_list = './las_list.txt'
+inventory_file = '../../data/lidar_calibration/Kiuic_400_live_biomass_unc.shp'
 raster_file = '../../data/LiDAR_data/GliHT_TCH_1m_100.tif'
-dem_file = '../../data/LiDAR_data/gliht_dtm.tif'
+dem_file = '../../data/LiDAR_data/DTM/Kiuic/kiuic_scale100_dtm.tif'#'../../data/LiDAR_data/gliht_dtm.tif'
 outfile = '../../data/lidar_calibration/sample_test.npz' # this will be a file to hold the compiled plot data
 path2fig = '../../figures/'
 plot_area = 400. # 1 ha
 radius = np.sqrt(plot_area/np.pi)
-gap_ht = 8.66 # height at which to define canopy gaps
+gap_ht = 2 # height at which to define canopy gaps
 plots_to_plot = ['24.1','15.4','5.2','6.1','3.1']
+quantiles = [.025,.1,.25,.5,.75,.9,.975]
 
 # LOAD FILES, CONVERT TO FLOAT AND SPECIFY NODATA REGIONS
-dem = xr.open_rasterio(dem_file)[0].sel(x=slice(229000,239000),y=slice(2230310,2214000))
-chm = xr.open_rasterio(raster_file)[0].sel(x=slice(229000,239000),y=slice(2230310,2214000))
-chm.values[dem.values==0]=-255
-chm.values = chm.values.astype(np.float16)
-chm.values[chm.values<0] = np.nan
-chm.values/=100. # rescale chm values
+dem = xr.open_rasterio(dem_file)[0]
+chm = xr.open_rasterio(raster_file)[0]
 
 # Coordinates etc
 X = chm['x'].values; Y = chm['y'].values
 dX = X[1]-X[0]; dY = Y[1]-Y[0]
-buffer = radius+np.sqrt(2.*max((dX)**2,(dY)**2))
+buffer = 10*radius+np.sqrt(2.*max((dX)**2,(dY)**2))
 
 # inventory data
 inventory = fiona.open(inventory_file)
@@ -76,8 +80,12 @@ inventory_AGB = {}
 # SAMPLE RASTER FOR EACH PLOT NEIGHBOURHOOD
 plot_clusters = plot_info.keys()
 for pp, plot in enumerate(plot_clusters):
+    print('\t\tprocessing %s' % plot,end='\r')
     # Generate mask around AOI to make subsequent code more efficient
     Xmin,Ymin,Xmax,Ymax = plot_info[plot]['buffer'].bounds
+    polygon_around_plot = np.array([[Xmin,Ymin],[Xmax,Ymin],[Xmax,Ymax],[Xmin,Ymax]])
+
+    # load raster subsets
     if dY<0:
         chm_sub = chm.sel(x=slice(Xmin,Xmax),y=slice(Ymax,Ymin))
         dem_sub = dem.sel(x=slice(Xmin,Xmax),y=slice(Ymax,Ymin))
@@ -85,51 +93,77 @@ for pp, plot in enumerate(plot_clusters):
         chm_sub = chm.sel(x=slice(Xmin,Xmax),y=slice(Ymin,Ymax))
         dem_sub = dem.sel(x=slice(Xmin,Xmax),y=slice(Ymin,Ymax))
 
-    for subplot in inventory:
-        if ('%.0f' % subplot['properties']['plot'])==plot:
-            id = '%.0f.%.0f' % (subplot['properties']['plot'],subplot['properties']['subplot'])
-            print('\t\tprocessing %s (cluster %i/%i)' % (id,pp+1,len(plot_clusters)),end='\r')
-            if chm_sub.values.size>0:
-                inventory_AGB[id]=subplot['properties']['agb']
-                plot_centre = Point(subplot['geometry']['coordinates'][0],subplot['geometry']['coordinates'][1])
-                chm_results[id] = gst.sample_raster_by_point_neighbourhood(chm_sub,plot_centre,radius,x_dim='x',y_dim='y',label = id)
-                dem_results[id] = gst.sample_raster_by_point_neighbourhood(dem_sub,plot_centre,radius,x_dim='x',y_dim='y',label = id)
+    # if plot within raster extent, get plot-level data
+    if np.all((len(chm_sub.x)>0,len(chm_sub.y)>0)):
+        if chm_sub.values.size>0:
+            chm_sub.values[dem_sub.values<=0]=-255
+            chm_sub.values = chm_sub.values.astype(np.float16)
+            chm_sub.values[chm_sub.values<0] = np.nan
+            chm_sub.values/=100. # rescale chm values
 
-for pp, plot in enumerate(plot_clusters):
-    # Generate mask around AOI to make subsequent code more efficient
-    Xmin,Ymin,Xmax,Ymax = plot_info[plot]['buffer'].bounds
-    if dY<0:
-        chm_sub = chm.sel(x=slice(Xmin,Xmax),y=slice(Ymax,Ymin))
-        dem_sub = dem.sel(x=slice(Xmin,Xmax),y=slice(Ymax,Ymin))
-    else:
-        chm_sub = chm.sel(x=slice(Xmin,Xmax),y=slice(Ymin,Ymax))
-        dem_sub = dem.sel(x=slice(Xmin,Xmax),y=slice(Ymin,Ymax))
-    for subplot in inventory:
-        if ('%.0f' % subplot['properties']['plot'])==plot:
-            id = '%.0f.%.0f' % (subplot['properties']['plot'],subplot['properties']['subplot'])
-            plot_centre = Point(subplot['geometry']['coordinates'][0],subplot['geometry']['coordinates'][1])
-            if chm_sub.values.size>0:
-                if chm_results[id]['status']=='PASS':
-                    # create second subset of the subplot for visualisation
-                    Xmin2,Ymin2,Xmax2,Ymax2 = plot_centre.buffer(5*radius).bounds
-                    if dY<0:
-                        chm_results[id]['chm_raster'] = chm.sel(x=slice(Xmin2,Xmax2),y=slice(Ymax2,Ymin2)).copy(deep=True)
-                        dem_results[id]['dem_raster'] = dem.sel(x=slice(Xmin2,Xmax2),y=slice(Ymax2,Ymin2)).copy(deep=True)
-                    else:
-                        dem_results[id]['dem_raster'] = dem.sel(x=slice(Xmin2,Xmax2),y=slice(Ymin2,Ymax2)).copy(deep=True)
-                        chm_results[id]['chm_raster'] = chm.sel(x=slice(Xmin2,Xmax2),y=slice(Ymin2,Ymax2)).copy(deep=True)
-                    # rescale coordinates to plot centre
-                    chm_results[id]['chm_raster'].x.values=chm_results[id]['chm_raster'].x.values - plot_centre.coords[0][0]
-                    chm_results[id]['chm_raster'].y.values=chm_results[id]['chm_raster'].y.values - plot_centre.coords[0][1]
-                    dem_results[id]['dem_raster'].x.values=dem_results[id]['dem_raster'].x.values - plot_centre.coords[0][0]
-                    dem_results[id]['dem_raster'].y.values=dem_results[id]['dem_raster'].y.values - plot_centre.coords[0][1]
+            dem_sub.values[dem_sub.values<=0]=-9999
+            dem_sub.values = dem_sub.values.astype(np.float16)
+            dem_sub.values[dem_sub.values<0] = np.nan
+            dem_sub.values/=100. # rescale chm values
 
-# clear memory
-dem.close(); dem=None
-gc.collect()
+            if np.sum(np.isfinite(chm_sub.values))>0:
+                # load point cloud data
+                lidar_pts, starting_ids, trees = lidar.load_lidar_data_by_polygon(las_file_list,polygon_around_plot)
+
+                # subtract ground elevation from point cloud
+                XX,YY = np.meshgrid(dem_sub['x'].values,dem_sub['y'].values)
+                XX=XX.ravel()
+                YY=YY.ravel()
+                ZZ=dem_sub.values.ravel()
+                temp_ids, dem_trees = lidar.create_KDTree(np.array([XX,YY]).T)
+
+                for subplot in inventory:
+                    if ('%.0f' % subplot['properties']['plot'])==plot:
+                        id = '%.0f.%.0f' % (subplot['properties']['plot'],subplot['properties']['subplot'])
+                        print('\t\tprocessing %s (cluster %i/%i)' % (id,pp+1,len(plot_clusters)),end='\r')
+                        #if chm_sub.values.size>0:
+                        inventory_AGB[id]={'AGB':subplot['properties']['agb'],
+                                            'uncertainty':subplot['properties']['unc']}
+                        plot_centre = Point(subplot['geometry']['coordinates'][0],subplot['geometry']['coordinates'][1])
+                        chm_results[id] = gst.sample_raster_by_point_neighbourhood(chm_sub,plot_centre,radius,x_dim='x',y_dim='y',label = id)
+                        dem_results[id] = gst.sample_raster_by_point_neighbourhood(dem_sub,plot_centre,radius,x_dim='x',y_dim='y',label = id)
+
+                        if np.mean(np.isfinite(chm_results[id]['raster_values'][0].values))>=.9:
+                            chm_results[id]['quantiles'] = st.weighted_quantiles(chm_results[id]['raster_values'][0].values,chm_results[id]['weights'],quantiles)
+
+                            # now get canopy cover directly from LiDAR point cloud
+                            pts_sub = lidar_tools.filter_lidar_data_by_neighbourhood(lidar_pts,[subplot['geometry']['coordinates'][0],subplot['geometry']['coordinates'][1]],radius)
+                            point_heights = np.zeros(pts_sub.shape[0])
+
+                            for idx in range(0,point_heights.size):
+                                dist,pixel_id = dem_trees[0].query(pts_sub[idx,:2],k=1)
+                                point_heights[idx] =pts_sub[idx,2]-ZZ[pixel_id]
+
+                            point_weights = 1/pts_sub[:,7]
+                            canopy_mask = point_heights>=gap_ht
+                            chm_results[id]['cover_fraction_from_pointcloud'] = np.sum(point_weights[canopy_mask]/np.sum(point_weights))
+                            chm_results[id]['point_cloud'] = pts_sub.copy()
+                            chm_results[id]['point_heights'] = point_heights.copy()
+                        else:
+                            chm_results[id]['status']='FAIL'
+
+                        if chm_results[id]['status']=='PASS':
+                            # create second subset of the subplot for visualisation
+                            Xmin2,Ymin2,Xmax2,Ymax2 = plot_centre.buffer(5*radius).bounds
+                            if dY<0:
+                                chm_results[id]['chm_raster'] = chm_sub.sel(x=slice(Xmin2,Xmax2),y=slice(Ymax2,Ymin2)).copy(deep=True)
+                                dem_results[id]['dem_raster'] = dem_sub.sel(x=slice(Xmin2,Xmax2),y=slice(Ymax2,Ymin2)).copy(deep=True)
+                            else:
+                                dem_results[id]['dem_raster'] = dem_sub.sel(x=slice(Xmin2,Xmax2),y=slice(Ymin2,Ymax2)).copy(deep=True)
+                                chm_results[id]['chm_raster'] = chm_sub.sel(x=slice(Xmin2,Xmax2),y=slice(Ymin2,Ymax2)).copy(deep=True)
+                            # rescale coordinates to plot centre
+                            chm_results[id]['chm_raster'].x.values=chm_results[id]['chm_raster'].x.values - plot_centre.coords[0][0]
+                            chm_results[id]['chm_raster'].y.values=chm_results[id]['chm_raster'].y.values - plot_centre.coords[0][1]
+                            dem_results[id]['dem_raster'].x.values=dem_results[id]['dem_raster'].x.values - plot_centre.coords[0][0]
+                            dem_results[id]['dem_raster'].y.values=dem_results[id]['dem_raster'].y.values - plot_centre.coords[0][1]
 
 # CALIBRATION STATISTICS
-ID=[]; AGB = []; TCH = []; COVER = []; NODATA = []
+ID=[]; AGB = []; TCH = []; COVER = []; NODATA = []; AGBunc = []
 for plot in chm_results.keys():
     id = chm_results[plot]['id']
     if chm_results[id]['status']=='PASS':
@@ -137,13 +171,14 @@ for plot in chm_results.keys():
             if np.sum(np.isnan(chm_results[id]['raster_values'][0])*chm_results[id]['weights'])<0.05*np.sum(chm_results[id]['weights']):
                 weights = chm_results[id]['weights']/np.sum(np.isfinite(chm_results[id]['raster_values'][0].values)*chm_results[id]['weights'])
                 ID.append(id)
-                AGB.append(inventory_AGB[id])
+                AGB.append(inventory_AGB[id]['AGB'])
+                AGBunc.append(inventory_AGB[id]['uncertainty'])
                 TCH.append(chm_results[id]['weighted_average'][0])
                 COVER.append(np.sum((chm_results[id]['raster_values'][0].values>=gap_ht)*weights))
                 NODATA.append(np.mean(~np.isfinite(chm_results[id]['raster_values'][0].values)))
 
 # Convert to np arrays for conditional indexing convenience
-AGB = np.asarray(AGB); TCH = np.asarray(TCH); COVER = np.asarray(COVER); ID = np.asarray(ID)
+AGB = np.asarray(AGB); AGBunc = np.asarray(AGBunc); TCH = np.asarray(TCH); COVER = np.asarray(COVER); ID = np.asarray(ID)
 
 """
 Explore positional uncertainty and it's impact on TCH estimation
@@ -154,37 +189,112 @@ n_iter = 100
 # SAMPLE RASTER FOR EACH PLOT NEIGHBOURHOOD
 plot_clusters = plot_info.keys()
 for pp, plot in enumerate(plot_clusters):
+    print('\t\tprocessing %s' % plot,end='\r')
     # Generate mask around AOI to make subsequent code more efficient
     Xmin,Ymin,Xmax,Ymax = plot_info[plot]['buffer'].bounds
-    Xmin-=50;Xmax+=50;Ymin-=50;Ymax+=50
+    Xmin-=100;Xmax+=100;Ymin-=100;Ymax+=100
     if dY<0:
         chm_sub = chm.sel(x=slice(Xmin,Xmax),y=slice(Ymax,Ymin))
+        dem_sub = dem.sel(x=slice(Xmin,Xmax),y=slice(Ymax,Ymin))
     else:
         chm_sub = chm.sel(x=slice(Xmin,Xmax),y=slice(Ymin,Ymax))
+        dem_sub = dem.sel(x=slice(Xmin,Xmax),y=slice(Ymax,Ymin))
 
-    for subplot in inventory:
-        if ('%.0f' % subplot['properties']['plot'])==plot:
-            id = '%.0f.%.0f' % (subplot['properties']['plot'],subplot['properties']['subplot'])
-            print('\t\tprocessing %s (cluster %i/%i)' % (id,pp+1,len(plot_clusters)),end='\r')
-            if chm_sub.values.size>0:
-                tch_mc = np.zeros(n_iter)*np.nan
-                for ii in range(0,n_iter):
-                    xerr = np.random.randn()*positional_error
-                    yerr = np.random.randn()*positional_error
-                    plot_centre = Point(subplot['geometry']['coordinates'][0]+xerr,subplot['geometry']['coordinates'][1]+yerr)
-                    results_iter = gst.sample_raster_by_point_neighbourhood(chm_sub,plot_centre,radius,x_dim='x',y_dim='y',label = id)
-                    if results_iter['status']=='PASS':
-                        tch_mc[ii] = results_iter['weighted_average'][0]
+    if np.all((len(chm_sub.x)>0,len(chm_sub.y)>0)):
+        if chm_sub.values.size>0:
+            chm_sub.values[dem_sub.values==0]=-255
+            chm_sub.values = chm_sub.values.astype(np.float16)
+            chm_sub.values[chm_sub.values<0] = np.nan
+            chm_sub.values/=100. # rescale chm values
 
-                    chm_results[id]['tch_mc_position']=tch_mc.copy()
+            dem_sub.values[dem_sub.values<=0]=-9999
+            dem_sub.values = dem_sub.values.astype(np.float16)
+            dem_sub.values[dem_sub.values<0] = np.nan
+            dem_sub.values/=100. # rescale chm values
 
-                chm_results_mc[id] = {'mean':np.mean(tch_mc),'sd':np.std(tch_mc),
-                                        'med':np.median(tch_mc),'2.5perc':np.percentile(tch_mc,2.5),
-                                        '97.5perc':np.percentile(tch_mc,97.5),
-                                        '25perc':np.percentile(tch_mc,25),
-                                        '50perc':np.percentile(tch_mc,50),
-                                        '75perc':np.percentile(tch_mc,75),
-                                        '95perc':np.percentile(tch_mc,95)}
+            if np.sum(np.isfinite(chm_sub.values))>0:
+                # load point cloud data
+                polygon_around_plot = np.array([[Xmin,Ymin],[Xmax,Ymin],[Xmax,Ymax],[Xmin,Ymax]])
+                lidar_pts, starting_ids, trees = lidar.load_lidar_data_by_polygon(las_file_list,polygon_around_plot)
+
+                # subtract ground elevation from point cloud
+                XX,YY = np.meshgrid(dem_sub['x'].values,dem_sub['y'].values)
+                XX=XX.ravel()
+                YY=YY.ravel()
+                ZZ=dem_sub.values.ravel()
+                temp_ids, dem_trees = lidar.create_KDTree(np.array([XX,YY]).T)
+
+                for subplot in inventory:
+                    if ('%.0f' % subplot['properties']['plot'])==plot:
+                        id = '%.0f.%.0f' % (subplot['properties']['plot'],subplot['properties']['subplot'])
+                        print('\t\tprocessing %s (cluster %i/%i)' % (id,pp+1,len(plot_clusters)),end='\r')
+                        #if chm_sub.values.size>0:
+                        if chm_results[id]['status']=='PASS':
+                            tch_mc = np.zeros(n_iter)*np.nan
+                            cover_mc = np.zeros(n_iter)*np.nan
+                            cover_fraction_from_pointcloud_mc = np.zeros(n_iter)*np.nan
+                            quantiles_mc = np.zeros((n_iter,len(quantiles)))*np.nan
+                            for ii in range(0,n_iter):
+                                xerr = np.random.randn()*positional_error
+                                yerr = np.random.randn()*positional_error
+                                plot_centre = Point(subplot['geometry']['coordinates'][0]+xerr,subplot['geometry']['coordinates'][1]+yerr)
+                                results_iter = gst.sample_raster_by_point_neighbourhood(chm_sub,plot_centre,radius,x_dim='x',y_dim='y',label = id)
+                                if results_iter['status']=='PASS':
+                                    tch_mc[ii] = results_iter['weighted_average'][0]
+                                    weights = results_iter['weights']/np.sum(np.isfinite(results_iter['raster_values'][0].values)*results_iter['weights'])
+                                    cover_mc[ii]= np.sum((results_iter['raster_values'][0].values>=gap_ht)*weights)
+                                    quantiles_mc[ii] = st.weighted_quantiles(results_iter['raster_values'][0].values,results_iter['weights'],quantiles)
+
+                                    # now get canopy cover directly from LiDAR point cloud
+                                    pts_sub = lidar_tools.filter_lidar_data_by_neighbourhood(lidar_pts,[subplot['geometry']['coordinates'][0]+xerr,subplot['geometry']['coordinates'][1]+yerr],radius)
+
+                                    point_heights = np.zeros(pts_sub.shape[0])
+                                    for idx in range(0,point_heights.size):
+                                        dist,pixel_id = dem_trees[0].query(pts_sub[idx,:2],k=1)
+                                        point_heights[idx] =pts_sub[idx,2]-ZZ[pixel_id]
+
+                                    point_weights = 1/pts_sub[:,7]
+                                    canopy_mask = point_heights>=gap_ht
+                                    cover_fraction_from_pointcloud_mc[ii] = np.sum(point_weights[canopy_mask]/np.sum(point_weights))
+
+                            chm_results[id]['tch_mc']=tch_mc.copy()
+                            chm_results[id]['tch_mc_mean']=np.mean(tch_mc)
+                            chm_results[id]['cover_mc']=cover_mc.copy()
+                            chm_results[id]['cover_mc_mean']=np.mean(cover_mc)
+                            chm_results[id]['quantiles_mc']=quantiles_mc.copy()
+                            chm_results[id]['quantiles_mc_mean']=np.mean(quantiles_mc)
+                            chm_results[id]['quantiles_ref']=quantiles
+                            chm_results[id]['cover_fraction_from_pointcloud_mc']=cover_fraction_from_pointcloud_mc.copy()
+                            chm_results[id]['cover_fraction_from_pointcloud_mc_mean']=np.mean(cover_fraction_from_pointcloud_mc)
+
+                            chm_results_mc[id]={}
+                            chm_results_mc[id]['TCH'] = {'mean':np.mean(tch_mc),
+                                                    'sd':np.std(tch_mc),
+                                                    'med':np.median(tch_mc),
+                                                    '2.5perc':np.percentile(tch_mc,2.5),
+                                                    '97.5perc':np.percentile(tch_mc,97.5),
+                                                    '25perc':np.percentile(tch_mc,25),
+                                                    '50perc':np.percentile(tch_mc,50),
+                                                    '75perc':np.percentile(tch_mc,75),
+                                                    'all':tch_mc.copy()}
+
+                            chm_results_mc[id]['Cover'] = {'mean':np.mean(cover_fraction_from_pointcloud_mc),
+                                                    'sd':np.std(cover_fraction_from_pointcloud_mc),
+                                                    'med':np.median(cover_fraction_from_pointcloud_mc),
+                                                    '2.5perc':np.percentile(cover_fraction_from_pointcloud_mc,2.5),
+                                                    '97.5perc':np.percentile(cover_fraction_from_pointcloud_mc,97.5),
+                                                    '25perc':np.percentile(cover_fraction_from_pointcloud_mc,25),
+                                                    '50perc':np.percentile(cover_fraction_from_pointcloud_mc,50),
+                                                    '75perc':np.percentile(cover_fraction_from_pointcloud_mc,75),
+                                                    'all':tch_mc.copy()}
+
+# clear memory
+dem.close(); dem=None
+gc.collect()
+
+# save for future use
+collated_results = {'chm':chm_results,'dem':dem_results,'inventory':inventory_AGB}
+np.savez(outfile,collated_results)
 
 # CALIBRATION STATISTICS
 mean=[]; sd = []; CI95_l = []; CI95_u = []; CI50_l = []; CI50_u = []
@@ -193,18 +303,15 @@ for plot in chm_results.keys():
     if chm_results[id]['status']=='PASS':
         if chm_results[id]['weighted_average']>0:
             if np.sum(np.isnan(chm_results[id]['raster_values'][0])*chm_results[id]['weights'])<0.05*np.sum(chm_results[id]['weights']):
-                mean.append(chm_results_mc[id]['mean'])
-                sd.append(chm_results_mc[id]['sd'])
-                CI95_l.append(chm_results_mc[id]['2.5perc'])
-                CI95_u.append(chm_results_mc[id]['97.5perc'])
-                CI50_l.append(chm_results_mc[id]['25perc'])
-                CI50_u.append(chm_results_mc[id]['75perc'])
+                mean.append(chm_results_mc[id]['TCH']['mean'])
+                sd.append(chm_results_mc[id]['TCH']['sd'])
+                CI95_l.append(chm_results_mc[id]['TCH']['2.5perc'])
+                CI95_u.append(chm_results_mc[id]['TCH']['97.5perc'])
+                CI50_l.append(chm_results_mc[id]['TCH']['25perc'])
+                CI50_u.append(chm_results_mc[id]['TCH']['75perc'])
 SD=np.array(sd);MEAN=np.array(mean);CI95_l=np.array(CI95_l);CI95_u=np.array(CI95_u)
 CI50_l=np.array(CI50_l);CI50_u=np.array(CI50_u)
 
-# save for future use
-collated_results = {'chm':chm_results,'dem':dem_results,'inventory':inventory_AGB}
-np.savez(outfile,collated_results)
 
 """
 PLOTTING
@@ -240,7 +347,7 @@ axes=fig_axes.flatten()
 axes[0].plot(MEAN,AGB,'.',color='black')
 #axes[0].errorbar(MEAN,AGB,xerr=SD,
 #                    marker='',linestyle='',color='0.5',linewidth=0.5)
-axes[0].errorbar(MEAN,AGB,xerr=(MEAN-CI95_l,CI95_u-MEAN),
+axes[0].errorbar(MEAN,AGB,xerr=(MEAN-CI95_l,CI95_u-MEAN),yerr=(AGBunc),
                     marker='',linestyle='',color='0.67',linewidth=0.5)
 axes[0].errorbar(MEAN,AGB,xerr=(MEAN-CI50_l,CI50_u-MEAN),
                     marker='',linestyle='',color='0.33',linewidth=0.75)
@@ -271,7 +378,7 @@ fig,ax = plt.subplots(nrows=1,ncols=1,figsize=[6,6])
 ax.plot(MEAN,AGB,'.',color='black')
 #axes[0].errorbar(MEAN,AGB,xerr=SD,
 #                    marker='',linestyle='',color='0.5',linewidth=0.5)
-ax.errorbar(MEAN,AGB,xerr=(MEAN-CI95_l,CI95_u-MEAN),
+ax.errorbar(MEAN,AGB,xerr=(MEAN-CI95_l,CI95_u-MEAN),yerr=(AGBunc),
                     marker='',linestyle='',color='0.67',linewidth=0.5)
 ax.errorbar(MEAN,AGB,xerr=(MEAN-CI50_l,CI50_u-MEAN),
                     marker='',linestyle='',color='0.33',linewidth=0.75)
