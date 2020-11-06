@@ -57,6 +57,7 @@ Project Info
 """
 site_id = 'kiuic'
 version = '034'
+resolution = '20'
 crs = ccrs.UTM('16N')
 path2alg = '../saved_models/'
 path2fig= '../figures/'
@@ -79,12 +80,12 @@ target = xr.open_rasterio(agb_list[0]).values[0]
 target[target<0]=np.nan
 
 # Load predictors & target
-data_layers,data_mask,labels = io.load_predictors(layers=['sentinel2','alos'])
+data_layers,data_mask,labels = io.load_predictors(layers=['sentinel2','alos'],resolution=resolution.zfill(3))
 n_predictors = data_layers.shape[0]
 print(labels)
 
 # load forest mask
-forest_mask_file = "/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/forest_mask/%s_forest_mask_20m.tif" % site_id
+forest_mask_file = "/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/forest_mask/%s_forest_mask_%sm.tif" % (site_id,resolution.zfill(20))
 forest = xr.open_rasterio(forest_mask_file).values[0]
 forest_mask=forest==1
 forest_mask = forest_mask*data_mask
@@ -97,12 +98,6 @@ training_mask = training_mask*forest_mask
 # Apply masks to the predictor dataset to be ingested into sklearn routines
 predictors = io.apply_mask_to_raster_stack(data_layers,forest_mask)
 X = io.apply_mask_to_raster_stack(data_layers,training_mask)
-"""
-# PCA analysis to reduce dimensionality of predictor variables
-pca = make_pipeline(StandardScaler(),PCA(n_components=0.999))
-pca.fit(predictors)
-X = pca.transform(predictors[mask,:])
-"""
 
 # load the trials data
 trials = pickle.load(open('%s%s_%s_rfbc_sentinel_lidar_agb_trials.p' % (path2alg,site_id,version), "rb"))
@@ -147,7 +142,7 @@ for ii, agb_file in enumerate(agb_list):
     rf_dict = {}
     rf_dict['rf1']=rf1
     rf_dict['rf2']=rf2
-    joblib.dump(rf_dict,'%s%s_%s_optimised_rfbc_sentinel_alos_lidar_%s.pkl' % (path2alg,site_id,version,str(ii+1).zfill(3)))
+    joblib.dump(rf_dict,'%s%s_%s_optimised_rfbc_sentinel_alos_lidar_%sm_%s.pkl' % (path2alg,site_id,version,resolution.zfill(3),str(ii+1).zfill(3)))
 X=None
 
 """
@@ -165,7 +160,7 @@ agb_stack = np.zeros((N_iter,rows,cols))
 #predictors=None
 for ii, agb_file in enumerate(agb_list):
     print('Iteration %i of %i' % (ii+1,N_iter))
-    rf_dict = joblib.load('%s%s_%s_optimised_rfbc_sentinel_alos_lidar_%s.pkl' % (path2alg,site_id,version,str(ii+1).zfill(3)))
+    rf_dict = joblib.load('%s%s_%s_optimised_rfbc_sentinel_alos_lidar_%s_%s.pkl' % (path2alg,site_id,version,resolution.zfill(3),str(ii+1).zfill(3)))
     agb_mod = rff.rfbc_predict(rf_dict['rf1'],rf_dict['rf2'],predictors)
 
     #let's copy to a new xarray for AGBpot
@@ -174,7 +169,7 @@ for ii, agb_file in enumerate(agb_list):
     agb.values[agb.values==-9999]=np.nan
     agb.values[agb.values<0]=0
 
-    outfile_prefix = '%s%s_%s_rfbc_agb_upscaled_%s' % (path2output,site_id,version,str(ii+1).zfill(3))
+    outfile_prefix = '%s%s_%s_%sm_rfbc_agb_upscaled_%s' % (path2output,site_id,version,resolution.zfill(3),str(ii+1).zfill(3))
     io.write_xarray_to_GeoTiff(agb,outfile_prefix)
 
     agb_stack[ii] = agb.values
@@ -183,19 +178,19 @@ for ii, agb_file in enumerate(agb_list):
 agb_med = io.copy_xarray_template(template)
 agb_med.values = np.median(agb_stack,axis=0)
 agb_med.values[agb_med.values==-9999]=np.nan
-outfile_prefix = '%s%s_%s_rfbc_agb_upscaled_median' % (path2output,site_id,version)
+outfile_prefix = '%s%s_%s_%sm_rfbc_agb_upscaled_median' % (path2output,site_id,version,resolution.zfill(3))
 io.write_xarray_to_GeoTiff(agb_med,outfile_prefix)
 
 agb_upper = io.copy_xarray_template(template)
 agb_upper.values = np.percentile(agb_stack,97.5,axis=0)
 agb_upper.values[agb_upper.values==-9999]=np.nan
-outfile_prefix = '%s%s_%s_rfbc_agb_upscaled_upper' % (path2output,site_id,version)
+outfile_prefix = '%s%s_%s_%sm_rfbc_agb_upscaled_upper' % (path2output,site_id,version,resolution.zfill(3))
 io.write_xarray_to_GeoTiff(agb_upper,outfile_prefix)
 
 agb_lower = io.copy_xarray_template(template)
 agb_lower.values = np.percentile(agb_stack,2.5,axis=0)
 agb_lower.values[agb_lower.values==-9999]=np.nan
-outfile_prefix = '%s%s_%s_rfbc_agb_upscaled_lower' % (path2output,site_id,version)
+outfile_prefix = '%s%s_%s_%sm_rfbc_agb_upscaled_lower' % (path2output,site_id,version,resolution.zfill(3))
 io.write_xarray_to_GeoTiff(agb_lower,outfile_prefix)
 
 """
@@ -207,7 +202,7 @@ agb_med.values[agb_med.values==-9999]=np.nan
 agb_lower.values[agb_lower.values==-9999]=np.nan
 agb_upper.values[agb_upper.values==-9999]=np.nan
 plt.rcParams["axes.axisbelow"] = False
-figure_name = '%s%s_%s_agb_upscaled.png' % (path2fig,site_id,version)
+figure_name = '%s%s_%s_%sm_agb_upscaled.png' % (path2fig,site_id,version,resolution.zfill(3))
 fig1,axes = plt.subplots(nrows=1,ncols=2,figsize=(9,6),sharex='all',sharey='all')
 mplt.plot_xarray_to_axis(agb_med,axes[0],
                     vmin=0,vmax=200,add_colorbar=True,
