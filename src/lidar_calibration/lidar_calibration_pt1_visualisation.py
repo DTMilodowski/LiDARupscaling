@@ -28,17 +28,23 @@ import gc
 
 # CHANGE THIS STUFF
 # Some file names - shapefiles and rasters should be in a projected coordinate system (i.e. UTM)
+version = '034'
 las_file_list = './las_list.txt'
 inventory_file = '../../data/lidar_calibration/Kiuic_400_live_biomass_unc.shp'
 raster_file = '../../data/LiDAR_data/GliHT_TCH_1m_100.tif'
 dem_file = '../../data/LiDAR_data/DTM/Kiuic/kiuic_scale100_dtm.tif'#'../../data/LiDAR_data/gliht_dtm.tif'
-outfile = '../../data/lidar_calibration/sample_test.npz' # this will be a file to hold the compiled plot data
+outfile = '../../data/lidar_calibration/kiuic_plot_lidar_sample_%s.npz' % version # this will be a file to hold the compiled plot data
 path2fig = '../../figures/'
 plot_area = 400. # 1 ha
 radius = np.sqrt(plot_area/np.pi)
 gap_ht = 2 # height at which to define canopy gaps
 plots_to_plot = ['24.1','15.4','5.2','6.1','3.1']
 quantiles = [.025,.1,.25,.5,.75,.9,.975]
+
+# from ICM plots - mean and standard deviation for total AGB in small stems
+# (2.5cm <= DBH < 7.5cm)
+small_stem_agb = 24.39092
+small_stem_std = 13.54176
 
 # LOAD FILES, CONVERT TO FLOAT AND SPECIFY NODATA REGIONS
 dem = xr.open_rasterio(dem_file)[0]
@@ -122,8 +128,15 @@ for pp, plot in enumerate(plot_clusters):
                         id = '%.0f.%.0f' % (subplot['properties']['plot'],subplot['properties']['subplot'])
                         print('\t\tprocessing %s (cluster %i/%i)' % (id,pp+1,len(plot_clusters)),end='\r')
                         #if chm_sub.values.size>0:
-                        inventory_AGB[id]={'AGB':subplot['properties']['agb'],
-                                            'uncertainty':subplot['properties']['unc']}
+                        # for NFI, add in expected AGB component from small stems
+                        if len(id)>5:
+                            inventory_AGB[id]={'AGB':subplot['properties']['agb']+small_stem_agb,
+                                                'uncertainty':np.sqrt(subplot['properties']['unc']**2+small_stem_std**2)}
+
+                        else:
+                            inventory_AGB[id]={'AGB':subplot['properties']['agb'],
+                                                'uncertainty':subplot['properties']['unc']}
+
                         plot_centre = Point(subplot['geometry']['coordinates'][0],subplot['geometry']['coordinates'][1])
                         chm_results[id] = gst.sample_raster_by_point_neighbourhood(chm_sub,plot_centre,radius,x_dim='x',y_dim='y',label = id)
                         dem_results[id] = gst.sample_raster_by_point_neighbourhood(dem_sub,plot_centre,radius,x_dim='x',y_dim='y',label = id)
@@ -157,10 +170,16 @@ for pp, plot in enumerate(plot_clusters):
                                 dem_results[id]['dem_raster'] = dem_sub.sel(x=slice(Xmin2,Xmax2),y=slice(Ymin2,Ymax2)).copy(deep=True)
                                 chm_results[id]['chm_raster'] = chm_sub.sel(x=slice(Xmin2,Xmax2),y=slice(Ymin2,Ymax2)).copy(deep=True)
                             # rescale coordinates to plot centre
-                            chm_results[id]['chm_raster'].x.values=chm_results[id]['chm_raster'].x.values - plot_centre.coords[0][0]
-                            chm_results[id]['chm_raster'].y.values=chm_results[id]['chm_raster'].y.values - plot_centre.coords[0][1]
-                            dem_results[id]['dem_raster'].x.values=dem_results[id]['dem_raster'].x.values - plot_centre.coords[0][0]
-                            dem_results[id]['dem_raster'].y.values=dem_results[id]['dem_raster'].y.values - plot_centre.coords[0][1]
+                            #chm_results[id]['chm_raster'].x.values=chm_results[id]['chm_raster'].x.values - plot_centre.coords[0][0]
+                            #chm_results[id]['chm_raster'].y.values=chm_results[id]['chm_raster'].y.values - plot_centre.coords[0][1]
+                            #dem_results[id]['dem_raster'].x.values=dem_results[id]['dem_raster'].x.values - plot_centre.coords[0][0]
+                            #dem_results[id]['dem_raster'].y.values=dem_results[id]['dem_raster'].y.values - plot_centre.coords[0][1]
+                            chm_results[id]['chm_raster'].coords['x']=chm_results[id]['chm_raster'].coords['x'] - plot_centre.x
+                            chm_results[id]['chm_raster'].coords['y']=chm_results[id]['chm_raster'].coords['y'] - plot_centre.y
+                            dem_results[id]['dem_raster'].coords['x']=dem_results[id]['dem_raster'].coords['x'] - plot_centre.x
+                            dem_results[id]['dem_raster'].coords['y']=dem_results[id]['dem_raster'].coords['y'] - plot_centre.y
+
+
 
 # CALIBRATION STATISTICS
 ID=[]; AGB = []; TCH = []; COVER = []; NODATA = []; AGBunc = []
@@ -316,40 +335,15 @@ CI50_l=np.array(CI50_l);CI50_u=np.array(CI50_u)
 """
 PLOTTING
 """
-# Plot the figure (original)
-fig,fig_axes = plt.subplots(nrows=2,ncols=3,figsize=[12,7])
-axes=fig_axes.flatten()
-axes[0].plot(TCH,AGB,'.',color='black')
-axes[0].set_title('TCH vs. inventory AGB')
-axes[0].set_xlabel('mean TCH / m')
-axes[0].set_ylabel('field AGB / Mg ha$^{-1}$')
-for ii,plot_id in enumerate(plots_to_plot):
-    plot_boundary = mpatches.Circle((0,0),radius,ec='white',fill=False)#,fc=None)
-    #im = axes[ii+1].imshow(chm_results[plot_id]['chm_raster'][0],vmin=0,vmax=23)
-    chm_results[plot_id]['chm_raster'].plot(ax=axes[ii+1], vmin=0, vmax=21,
-                extend='max', cbar_kwargs={'label':'height / m'})
-    axes[ii+1].add_artist(plot_boundary)
-    axes[ii+1].set_title('plot %s; AGB = %.1f Mg/ha' % (plot_id,AGB[ID==plot_id]))
-    axes[0].plot(TCH[ID==plot_id],AGB[ID==plot_id],'.',color='#2db27d')#'#bc1655')
-    axes[0].annotate(' %s' % plot_id,xy=(TCH[ID==plot_id],AGB[ID==plot_id]),color='#2db27d')
-    if ii>=2:
-        axes[ii+1].set_xlabel('distance / m')
-    else:
-        axes[ii+1].set_xlabel('')
-    axes[ii+1].set_ylabel('')
-fig.tight_layout()
-fig.savefig('%slidar_TCH_vs_field_AGB_400m.png' % path2fig)
-fig.show()
-
 # Plot the figure with montecarlo postion errors
 fig,fig_axes = plt.subplots(nrows=2,ncols=3,figsize=[12,7])
 axes=fig_axes.flatten()
 axes[0].plot(MEAN,AGB,'.',color='black')
 #axes[0].errorbar(MEAN,AGB,xerr=SD,
 #                    marker='',linestyle='',color='0.5',linewidth=0.5)
-axes[0].errorbar(MEAN,AGB,xerr=(MEAN-CI95_l,CI95_u-MEAN),yerr=(AGBunc),
+axes[0].errorbar(MEAN,AGB,xerr=(MEAN-CI95_l,CI95_u-MEAN),
                     marker='',linestyle='',color='0.67',linewidth=0.5)
-axes[0].errorbar(MEAN,AGB,xerr=(MEAN-CI50_l,CI50_u-MEAN),
+axes[0].errorbar(MEAN,AGB,xerr=(MEAN-CI50_l,CI50_u-MEAN),yerr=AGBunc,
                     marker='',linestyle='',color='0.33',linewidth=0.75)
 axes[0].set_title('TCH vs. inventory AGB')
 axes[0].set_xlabel('mean TCH / m')
@@ -369,22 +363,20 @@ for ii,plot_id in enumerate(plots_to_plot):
         axes[ii+1].set_xlabel('')
     axes[ii+1].set_ylabel('')
 fig.tight_layout()
-fig.savefig('%slidar_TCH_vs_field_AGB_400m_after_mc.png' % path2fig)
+fig.savefig('%slidar_TCH_vs_field_AGB_400m_after_mc_%s.png' % (path2fig,version))
 fig.show()
 
 
 # Plot the figure with montecarlo postion errors
 fig,ax = plt.subplots(nrows=1,ncols=1,figsize=[6,6])
 ax.plot(MEAN,AGB,'.',color='black')
-#axes[0].errorbar(MEAN,AGB,xerr=SD,
-#                    marker='',linestyle='',color='0.5',linewidth=0.5)
-ax.errorbar(MEAN,AGB,xerr=(MEAN-CI95_l,CI95_u-MEAN),yerr=(AGBunc),
+ax.errorbar(MEAN,AGB,xerr=(MEAN-CI95_l,CI95_u-MEAN),
                     marker='',linestyle='',color='0.67',linewidth=0.5)
-ax.errorbar(MEAN,AGB,xerr=(MEAN-CI50_l,CI50_u-MEAN),
+ax.errorbar(MEAN,AGB,xerr=(MEAN-CI50_l,CI50_u-MEAN),yerr=(AGBunc),
                     marker='',linestyle='',color='0.33',linewidth=0.75)
 ax.set_title('TCH vs. inventory AGB')
 ax.set_xlabel('mean TCH / m')
 ax.set_ylabel('field AGB / Mg ha$^{-1}$')
 fig.tight_layout()
-fig.savefig('%slidar_TCH_vs_field_AGB_400m_after_mc_single_panel.png' % path2fig)
+fig.savefig('%slidar_TCH_vs_field_AGB_400m_after_mc_single_panel_%s.png' % (path2fig,version))
 fig.show()
