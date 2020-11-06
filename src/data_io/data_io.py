@@ -181,60 +181,101 @@ The function returns four objects:
     3) sentinel nodata mask
     4) labels for predictor variables
 """
-def load_predictors(site_id = 'kiuic', path2data = "/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/"):
+def load_predictors(site_id = 'kiuic', path2data = "/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/",layers = ['sentinel2','alos']):
 
-    path2lidar = path2data+'/lidar/processed/'
-    path2sentinel = path2data+'/sentinel/processed/'
+    path2lidar = path2data+'/lidar_20m/'
+    path2sentinel = path2data+'/satellite_20m/sentinel/'
+    path2alos = path2data+'/satellite_20m/alos/'
     path2mask = path2data+'/forest_mask/'
     #path2mask = path2data+'/land_cover/'
 
-    # Load the sentinel data
-    sentinel_files = sorted(glob.glob('%s%s*tif' % (path2sentinel,site_id)))
-    nodata=[]
-    labels = []
-    rows,cols = rasterio.open(sentinel_files[0]).shape
-    for ff in sentinel_files:
-        nodata.append(rasterio.open(ff).nodatavals[0])
-        labels.append(ff.split('/')[-1].split('.')[0])
-
-    forest = xr.open_rasterio('%s/%s_10_regridded.tif' % (path2mask,site_id)).values[0]
-    mask=forest==1
-    #forest = xr.open_rasterio('%s/%s_4_classes_regridded.tif' % (path2mask,site_id)).values[0]
-    #mask=np.any((forest==2,forest==3,forest==4),axis=0)
-    sentinel = np.zeros((len(sentinel_files),rows,cols))
-    for ii,ff in enumerate(sentinel_files):
-        #print(ff)
-        sentinel[ii] = xr.open_rasterio(ff).values
-        mask = mask & (sentinel[ii]!=nodata[ii])
-        mask = mask & (sentinel[ii]>-3*10**38)
-    print('Loaded Sentinel-2 data')
-
-    # also load the LiDAR data to check we only keep pixels with AGB estimates
-    file = glob.glob(path2lidar+site_id+'*regridded.tif')[0]
-    agb = xr.open_rasterio(file).values
-    agb[agb==rasterio.open(file).nodatavals[0]]=np.nan # set nodata
+    #  load the LiDAR data to check we only keep pixels with AGB estimates
+    files = glob.glob(path2lidar+site_id+'*.tif')
+    template = xr.open_rasterio(files[0]).values[0]
+    rows,cols=template.shape
+    """
+    agb_mc= np.zeros((len(files),rows,cols))
+    for ii, file in enumerate(files):
+        ndv=rasterio.open(file).nodatavals[0]
+        agb_mc[ii]=xr.open_rasterio(file).values[0]
+        agb_mc[ii][agb_mc[ii]==ndv]=np.nan
+    agb=np.median(agb_mc,axis=0)
+    target = agb#[mask]
+    agb_mc = None
     print('Loaded LiDAR AGB data')
 
+    forest = xr.open_rasterio('%s/%s_forest_mask_20m.tif' % (path2mask,site_id)).values[0]
+    mask=forest==1
+    """
+    data_layers = np.zeros((0,rows,cols))
+    mask=np.ones((rows,cols),dtype='bool')
+    nodata=[]
+    labels = []
+
+    # Load the sentinel data
+    if 'sentinel2' in layers:
+        sentinel_files = sorted(glob.glob('%s%s*tif' % (path2sentinel,site_id)))
+        for ff in sentinel_files:
+            nodata.append(rasterio.open(ff).nodatavals[0])
+            labels.append(ff.split('/')[-1].split('.')[0])
+
+        sentinel = np.zeros((len(sentinel_files),rows,cols))
+        for ii,ff in enumerate(sentinel_files):
+            #print(ff)
+            sentinel[ii] = xr.open_rasterio(ff).values[0]
+            mask = mask & (sentinel[ii]!=nodata[ii])
+            mask = mask & (sentinel[ii]>-3*10**38)
+
+        data_layers = np.concatenate((data_layers,sentinel),axis=0)
+        print('Loaded Sentinel-2 data')
+
+    # load the alos data
+    if 'alos' in layers:
+        alos_files = sorted(glob.glob('%s%s*tif' % (path2alos,site_id)))
+        for ff in alos_files:
+            nodata.append(rasterio.open(ff).nodatavals[0])
+            labels.append(ff.split('/')[-1].split('.')[0])
+
+        alos = np.zeros((len(alos_files),rows,cols))
+        for ii,ff in enumerate(alos_files):
+            #print(ff)
+            alos[ii] = xr.open_rasterio(ff).values[0]
+            mask = mask & (alos[ii]!=nodata[ii])
+            mask = mask & (alos[ii]>-3*10**38)
+
+        data_layers = np.concatenate((data_layers,alos),axis=0)
+        print('Loaded ALOS data')
+    """
     #create the empty array to store the predictors
-    predictors = np.zeros([mask.sum(),sentinel.shape[0]])
+    predictors = np.zeros([mask.sum(),data_layers.shape[0]])
 
     # check the mask dimensions
     if len(mask.shape)>2:
-        print('\t\t caution shape of landmask is: ', mask.shape)
+        print('\t\t caution shape of mask is: ', mask.shape)
         mask = mask[0]
 
     #iterate over variables to create the large array with data
     counter = 0
-    """
-    for vv in sentinel:
-        predictors[:,counter] = vv.values[mask]
-        counter += 1
-    """
-    for vv in range(0,sentinel.shape[0]):
-        predictors[:,counter] = sentinel[vv][mask]
+    for vv in range(0,data_layers.shape[0]):
+        predictors[:,counter] = data_layers[vv][mask]
         counter += 1
 
-    target = agb[0]#[mask]
-    print('Extracted sentinel layers, with corresponding LiDAR AGB')
+    print('Extracted layers, with corresponding LiDAR AGB')
 
-    return(predictors,target,mask,labels)
+    return(data_layers,target,mask,labels)
+    """
+    return(data_layers,mask,labels)
+
+"""
+apply mask to raster stack
+-----------------------------------------
+apply 2D mask to stack of rasters (3rd dimension = different variables) to be
+fed into machine learning applications
+"""
+def apply_mask_to_raster_stack(predictors,mask):
+    n_vars = predictors.shape[0]
+    X = np.zeros((mask.sum(),n_vars))
+    for ii in range(0,n_vars):
+        X[:,ii] = predictors[ii][mask]
+
+    return X
