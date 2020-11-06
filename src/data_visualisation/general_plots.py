@@ -9,13 +9,16 @@ David T. Milodowski, 25/03/2019
 import libraries needed
 """
 import numpy as np
-import matplotlib.pyplot as plt     # plotting package
-import seaborn as sns               # another useful plotting package
 import pandas as pd
+import seaborn as sns               # another useful plotting package
+import matplotlib.pyplot as plt     # plotting package
+from scipy.interpolate import interpn
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.linear_model import LinearRegression
-from scipy.interpolate import interpn
 
+import sys
+sys.path.append('../')
+import stats_tools as st
 """
 Part 2: Random forests
 """
@@ -88,7 +91,7 @@ def plot_cal_val(y_train,y_train_rf,y_test,y_test_rf,show=True):
     return fig3,axes
 
 # figure 4,cal_val with regression line
-def plot_cal_val_agb(y_train,y_train_rf,y_test,y_test_rf,show=True):
+def plot_cal_val_agb(y_train,y_train_rf,y_test,y_test_rf,x_label='model', y_label='observed', show=True):
 
     data_train , x_e, y_e = np.histogram2d( y_train, y_train_rf, bins = 50)
     z_train = interpn( ( 0.5*(x_e[1:] + x_e[:-1]) , 0.5*(y_e[1:]+y_e[:-1]) ) , data_train , np.vstack([y_train,y_train_rf]).T , method = "splinef2d", bounds_error = False )
@@ -96,6 +99,11 @@ def plot_cal_val_agb(y_train,y_train_rf,y_test,y_test_rf,show=True):
     z_test = interpn( ( 0.5*(x_e[1:] + x_e[:-1]) , 0.5*(y_e[1:]+y_e[:-1]) ) , data_test , np.vstack([y_test,y_test_rf]).T , method = "splinef2d", bounds_error = False )
     idx_train = z_train.argsort()
     idx_test = z_test.argsort()
+
+    # moving average of residuals
+    cal_mod_ref, cal_res_mov, cal_res_mov_sd = st.moving_bin_residual(y_train_rf,y_train,bin_halfwidth=10,post_spacing=1)
+    val_mod_ref, val_res_mov, val_res_mov_sd = st.moving_bin_residual(y_test_rf,y_test,bin_halfwidth=10,post_spacing=1)
+
     cal_df = pd.DataFrame(data = {'cal_obs': y_train[idx_train],
                                      'cal_model': y_train_rf[idx_train],
                                      'cal_dens':z_train[idx_train],})
@@ -103,9 +111,8 @@ def plot_cal_val_agb(y_train,y_train_rf,y_test,y_test_rf,show=True):
                                      'val_model': y_test_rf[idx_test],
                                      'val_dens':z_test[idx_test]})
 
-    cal_reg = LinearRegression().fit(y_train.reshape(-1, 1),y_train_rf)
-    val_reg = LinearRegression().fit(y_test.reshape(-1, 1),y_test_rf)
-
+    #cal_reg = LinearRegression().fit(y_train.reshape(-1, 1),y_train_rf)
+    #val_reg = LinearRegression().fit(y_test.reshape(-1, 1),y_test_rf)
 
     cmap = sns.light_palette('seagreen',as_cmap=True)
 
@@ -113,8 +120,11 @@ def plot_cal_val_agb(y_train,y_train_rf,y_test,y_test_rf,show=True):
     sns.scatterplot(x='cal_obs',y='cal_model',data=cal_df,marker='.',
                 hue='cal_dens',palette=cmap,edgecolor='none',legend=False,ax=axes[0])
     x_range = np.array([np.min(cal_df['cal_obs']),np.max(cal_df['cal_obs'])])
-    axes[0].plot(x_range,cal_reg.predict(x_range.reshape(-1, 1)),'-',color='black')
+    #axes[0].plot(x_range,cal_reg.predict(x_range.reshape(-1, 1)),'-',color='black')
     axes[0].plot(x_range,x_range,'--',color='black')
+    axes[0].plot(cal_mod_ref,cal_mod_ref-cal_res_mov,'-',color='black')
+    axes[0].plot(cal_mod_ref,cal_mod_ref-cal_res_mov+cal_res_mov_sd,':',color='black')
+    axes[0].plot(cal_mod_ref,cal_mod_ref-cal_res_mov-cal_res_mov_sd,':',color='black')
     axes[0].annotate('calibration R$^2$ = %.02f\nRMSE = %.02f' %
                 (r2_score(y_train,y_train_rf),np.sqrt(mean_squared_error(y_train,y_train_rf))),
                 xy=(0.05,0.95), xycoords='axes fraction',backgroundcolor='none',
@@ -122,16 +132,20 @@ def plot_cal_val_agb(y_train,y_train_rf,y_test,y_test_rf,show=True):
     sns.scatterplot(x='val_obs',y='val_model',data=val_df,marker='.',
                 hue='val_dens',palette=cmap,edgecolor='none',legend=False,ax=axes[1])
     x_range = np.array([np.min(val_df['val_obs']),np.max(val_df['val_obs'])])
-    axes[1].plot(x_range,val_reg.predict(x_range.reshape(-1, 1)),'-',color='black')
+    #axes[1].plot(x_range,val_reg.predict(x_range.reshape(-1, 1)),'-',color='black')
     axes[1].plot(x_range,x_range,'--',color='black')
+    axes[1].plot(val_mod_ref,val_mod_ref-val_res_mov,'-',color='black')
+    axes[1].plot(val_mod_ref,val_mod_ref-val_res_mov+val_res_mov_sd,':',color='black')
+    axes[1].plot(val_mod_ref,val_mod_ref-val_res_mov-val_res_mov_sd,':',color='black')
     axes[1].annotate('validation R$^2$ = %.02f\nRMSE = %.02f'
                 % (r2_score(y_test,y_test_rf),np.sqrt(mean_squared_error(y_test,y_test_rf))),
                 xy=(0.05,0.95), xycoords='axes fraction',backgroundcolor='none',
                 horizontalalignment='left', verticalalignment='top')
-    axes[0].axis('equal')
-    axes[1].axis('equal')
-    axes[0].set_xlim(0,np.max(cal_df['cal_obs']))
-    axes[1].set_xlim(0,np.max(cal_df['cal_obs']))
+    for ax in axes:
+        ax.axis('equal')
+        ax.set_xlim(0,np.max(cal_df['cal_obs']))
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
     fig4.tight_layout()
     if show:
         fig4.show()
@@ -155,9 +169,16 @@ def plot_importances(imp_df,show=True):
         fig5.show()
     return fig5,axes
 
-def plot_permutation_importances(imp_df,show=True):
-    fig5,axis= plt.subplots(nrows=1,ncols=1,figsize=[6,8],sharex=True)
-    sns.barplot(x='permutation_importance',y='variable',ci='sd',data=imp_df,ax=axis,color='0.5')
+def plot_permutation_importances(imp_df,show=True,figsize=[6,8],emphasis=[],emphasis_colour='#2db27d'):
+    fig5,axis= plt.subplots(nrows=1,ncols=1,figsize=figsize,sharex=True)
+
+    colours = {}
+    for var in np.unique(imp_df['variable']):
+        if var in emphasis:
+            colours[var]=emphasis_colour
+        else:
+            colours[var]='0.5'
+    sns.barplot(x='permutation_importance',y='variable',ci='sd',data=imp_df,ax=axis,palette=colours)
     #axis.annotate('permutation importance',
     #            xy=(0.95,0.98), xycoords='axes fraction',backgroundcolor='none',
     #            horizontalalignment='right', verticalalignment='top')
@@ -169,9 +190,7 @@ def plot_permutation_importances(imp_df,show=True):
     return fig5,axis
 
 # Plot partial dependencies
-def plot_partial_dependencies_simple(rf, X, x_label=None, y_label=None,
-                                        variable_position=0, show=True):
-
+def plot_partial_dependencies_simple(rf, X, x_label=None, y_label=None, variable_position=0, show=True):
     n_variables=X.shape[1]
     var_ = np.linspace(np.min(X[:,variable_position]),np.max(X[:,variable_position])+1,200)
     X_RM = np.zeros((var_.size,n_variables))
@@ -289,3 +308,42 @@ def plot_hyperparameter_search_trace(df,parameters):
     axes[2,1].set_title('Cross-validation score (MSE)')
     plt.tight_layout()
     return fig,axes
+
+
+# Validation plot
+def plot_validation(y_obs,y_mod,annotation='',x_label='model', y_label='observed', show=True):
+    data , x_e, y_e = np.histogram2d( y_obs, y_mod, bins = 50)
+    z = interpn( ( 0.5*(x_e[1:] + x_e[:-1]) , 0.5*(y_e[1:]+y_e[:-1]) ) , data , np.vstack([y_obs,y_mod]).T , method = "splinef2d", bounds_error = False )
+    idx = z.argsort()
+    df = pd.DataFrame(data = {'obs': y_obs[idx],
+                                     'model': y_mod[idx],
+                                     'dens':z[idx]})
+
+    mod_ref, res_mov, res_mov_sd = st.moving_bin_residual(y_mod,y_obs,bin_halfwidth=10,post_spacing=1)
+
+    #reg = LinearRegression().fit(y_obs.reshape(-1, 1),y_mod)
+
+    cmap = sns.light_palette('seagreen',as_cmap=True)
+
+    fig4,ax= plt.subplots(nrows=1,ncols=1,figsize=[4,4])
+    sns.scatterplot(x='model',y='obs',data=df,marker='.',
+                hue='dens',palette=cmap,edgecolor='none',legend=False,ax=ax)
+    x_range = np.arange([np.min(df['mod']),np.max(df['mod'])])
+    #ax.plot(x_range,reg.predict(x_range.reshape(-1, 1)),'-',color='black')
+    ax.plot(x_range,x_range,'--',color='black')    axes[1].plot(val_mod_ref,val_mod_ref-val_res_mov,'-',color='black')
+    ax.plot(mod_ref,mod_ref-res_mov,'-',color='black')
+    ax.plot(mod_ref,mod_ref-res_mov-res_mov_sd,':',color='black')
+    ax.plot(mod_ref,mod_ref-res_mov-res_mov_sd,':',color='black')
+    if len(annotation)>0:
+        ax.annotate(annotation,xy=(0.05,0.95), xycoords='axes fraction',
+                    backgroundcolor='none', ha='left', va='top')
+    sns.scatterplot(x='obs',y='model',data=df,marker='.',hue='dens',
+                palette=cmap,edgecolor='none',legend=False,ax=ax)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.axis('equal')
+    ax.set_xlim(0,np.max(df['obs']))
+    fig4.tight_layout()
+    if show:
+        fig4.show()
+    return fig4,ax
