@@ -181,16 +181,16 @@ The function returns four objects:
     3) sentinel nodata mask
     4) labels for predictor variables
 """
-def load_predictors(site_id = 'kiuic', path2data = "/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/",layers = ['sentinel2','alos']):
+def load_predictors(site_id = 'kiuic', path2data = "../data/",layers = ['sentinel2','alos'], resolution='20'):
 
-    path2lidar = path2data+'/lidar_20m/'
-    path2sentinel = path2data+'/satellite_20m/sentinel/'
-    path2alos = path2data+'/satellite_20m/alos/'
-    path2mask = path2data+'/forest_mask/'
-    #path2mask = path2data+'/land_cover/'
+    path2sentinel = '%s/processed_textures/sentinel_%sm/' % (path2data,resolution.zfill(3))
+    if resolution=='20m':
+        path2alos = '%s/processed_pre_texture/alos_%sm/' % (path2data,resolution)
+    else:
+        path2alos = '%s/processed_textures/alos_%sm/' % (path2data,resolution.zfill(3))
 
     #  load the LiDAR data to check we only keep pixels with AGB estimates
-    files = glob.glob(path2lidar+site_id+'*.tif')
+    files = glob.glob('%s%s*.tif' % (path2sentinel,site_id))
     template = xr.open_rasterio(files[0]).values[0]
     rows,cols=template.shape
 
