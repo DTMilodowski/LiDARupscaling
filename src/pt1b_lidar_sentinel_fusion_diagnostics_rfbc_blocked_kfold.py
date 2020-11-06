@@ -70,6 +70,7 @@ Project Info
 """
 site_id = 'kiuic'
 version = '034'
+resolution = '20m'
 path2data = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/'
 path2alg = '../saved_models/'
 if(os.path.isdir(path2alg)==False):
@@ -95,7 +96,7 @@ target=lidar.values.copy()
 target[target<0] = np.nan
 
 # Load predictors & target
-data_layers,data_mask,labels = io.load_predictors(layers=['sentinel2','alos'])
+data_layers,data_mask,labels = io.load_predictors(layers=['sentinel2','alos'],resolution=resolution)
 n_predictors = data_layers.shape[0]
 print(labels)
 
@@ -112,188 +113,14 @@ training_mask = training_mask*forest_mask
 
 # Apply masks to the predictor dataset to be ingested into sklearn routines
 predictors = io.apply_mask_to_raster_stack(data_layers,forest_mask)
-
-# PCA analysis to reduce dimensionality of predictor variables
-"""
-pca = make_pipeline(StandardScaler(),PCA(n_components=0.999))
-pca.fit(predictors)
-X = pca.transform(predictors[training_mask[forest_mask],:])
-"""
 X = predictors[training_mask[forest_mask],:]
 y = target[training_mask]
 
-"""
-#===============================================================================
-PART B: CAL-VAL USING RANDOMISED SEARCH THEN BAYESIAN HYPERPARAMETER OPTIMISATION
-Cal-val
-Cal-val figures
-#-------------------------------------------------------------------------------
-"""
-# Set up k-fold cross validation
-block_res = 1000
-buffer_width = 100
-k=5
-cal_blocks,val_blocks = cv.get_k_fold_cal_val_blocked(lidar,block_res,buffer_width,training_mask=training_mask,k=k)
-
-print('Hyperparameter optimisation')
-rf = RandomForestRegressor(criterion="mse",bootstrap=True,oob_score=True,n_jobs=-1)
-param_space = { "max_depth":scope.int(hp.quniform("max_depth",20,200,1)),              # ***maximum number of branching levels within each tree
-                "max_features":scope.int(hp.uniform("max_features",1,X.shape[1])),      # ***the maximum number of variables used in a given tree
-                "min_samples_leaf":scope.int(hp.quniform("min_samples_leaf",1,100,1)),    # ***The minimum number of samples required to be at a leaf node
-                "min_samples_split": scope.int(hp.quniform("min_samples_split",2,250,1)),  # ***The minimum number of samples required to split an internal node
-                "n_estimators":scope.int(hp.quniform("n_estimators",80,400,1)),          # ***Number of trees in the random forest
-                "n_jobs":hp.choice("n_jobs",[20,20]),
-                "oob_score":hp.choice("oob_score",[True,True])
-                }
-
-# set seed
-np.random.seed(2909)
-
-# define a function to quantify the objective function
-def f(params):
-    global best_mse
-    global fail_count
-    # check the hyperparameter set is sensible
-    # - check 1: min_samples_split > min_samples_leaf
-    if params['min_samples_split']<params['min_samples_leaf']:
-        fail_count+=1
-        return {'loss': None, 'status': STATUS_FAIL}
-
-    params['random_state']=int(np.random.random()*10**6)
-    rf = RandomForestRegressor(**params)
-    r2_scores = np.zeros((k,2))
-    MSE_scores = np.zeros((k,2))
-    grad_scores = np.zeros((k,2))
-    for kk in range(k):
-        train_mask = cal_blocks!=kk
-        test_mask = val_blocks==kk
-
-        rf1,rf2 = rff.rfbc_fit(rf,X[train_mask],y[train_mask])
-        y_rf = rff.rfbc_predict(rf1,rf2,X)
-
-        m,temp1,r,temp2,temp3 = stats.linregress(y[test_mask],y_rf[test_mask])
-        r2_scores[kk,0] = r**2
-        MSE_scores[kk,0] = np.mean( (y[test_mask]-y_rf[test_mask]) **2 )
-        grad_scores[kk,0] = m
-
-        m,temp1,r,temp2,temp3 = stats.linregress(y[train_mask],y_rf[train_mask])
-        r2_scores[kk,1] = r**2
-        MSE_scores[kk,1] = np.mean( (y[train_mask]-y_rf[train_mask]) **2 )
-        grad_scores[kk,1] = m
-
-    r2_score=r2_scores[:,0].mean()
-    mse=MSE_scores[:,0].mean()
-    # - if error reduced, then update best model accordingly
-    if mse < best_mse:
-        best_mse = mse
-        print('new best r^2: %.5f; best RMSE: %.5f' % (r2_score, np.sqrt(mse)))
-        print(params)
-    return {'loss' : mse, 'status' : STATUS_OK,
-            'mse_test' : MSE_scores[:,0].mean(),
-            'mse_train' : MSE_scores[:,1].mean(),
-            'gradient_test' : grad_scores[:,0].mean(),
-            'gradient_train' : grad_scores[:,1].mean(),
-            'r2_test' : r2_scores[:,0].mean(),
-            'r2_train' : r2_scores[:,1].mean()}
-
-trials=Trials()
-# Set algoritm parameters
-# - TPE
-# - randomised search used to initialise (n_startup_jobs iterations)
-# - percentage of hyperparameter combos identified as "good" (gamma)
-# - number of sampled candidates to calculate expected improvement (n_EI_candidates)
-max_evals_target = 250
-spin_up_target = 100
-best_mse = np.inf
-fail_count=0
-
-# Start with randomised search - setting this explicitly to account for some
-# iterations not being accepted
-print("Starting randomised search (spin up)")
-best = fmin(f, param_space, algo=rand.suggest, max_evals=spin_up_target, trials=trials)
-spin_up = spin_up_target+fail_count
-while (len(trials.trials)-fail_count)<spin_up_target:
-    print('\tTarget: %i; iterations: %i; failures: %i' % (spin_up_target,len(trials.trials),fail_count))
-    spin_up+=1
-    best = fmin(f, param_space, algo=rand.suggest, max_evals=spin_up, trials=trials)
-
-print('randomised search complete; saving trials to file for future reference')
-pickle.dump(trials, open('%s%s_%s_rf_sentinel_lidar_agb_trials_rfbc.p' % (path2alg,site_id,version), "wb"))
-
-# Now do the TPE search
-print("Starting TPE search")
-max_evals = max_evals_target+fail_count
-algorithm = partial(tpe.suggest, n_startup_jobs=spin_up, gamma=0.15, n_EI_candidates=80)
-best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
-
-# Not every hyperparameter set will be accepted, so need to conitnue searching
-# until the required number of evaluations is met
-max_evals = max_evals_target+fail_count
-while (len(trials.trials)-fail_count)<max_evals_target:
-    print('\tTarget: %i; iterations: %i; failures: %i' % (max_evals_target,len(trials.trials),fail_count))
-    max_evals+=1
-    best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
-
-print('first phase of TPE search complete; saving trials to file for future reference')
-pickle.dump(trials, open('%s%s_%s_rfbc_sentinel_lidar_agb_trials.p' % (path2alg,site_id,version), "wb"))
-
-# Now repeat TPE search for another 200 iterations with a refined search window
-max_evals_target+=200
-max_evals = max_evals_target+fail_count
-algorithm = partial(tpe.suggest, n_startup_jobs=spin_up, gamma=0.25, n_EI_candidates=32)
-while (len(trials.trials)-fail_count)<max_evals_target:
-    print('\tTarget: %i; iterations: %i; failures: %i' % (max_evals_target,len(trials.trials),fail_count))
-    max_evals+=1
-    best = fmin(f, param_space, algo=algorithm, max_evals=max_evals, trials=trials)
-
-print('\n\n%i iterations, from which %i failed' % (max_evals,fail_count))
-print('best:')
-print(best)
-
-# save trials for future reference
-print('TPE search complete; saving trials to file for future reference')
-pickle.dump(trials, open('%s%s_%s_rfbc_sentinel_lidar_agb_trials.p' % (path2alg,site_id,version), "wb"))
-# open with:
-# trials = pickle.load(open('%s%s_%s_rfbc_sentinel_lidar_agb_trials.p' % (path2alg,site_id,version), "rb"))
-
-# plot summary of optimisation runs
-print('Basic plots summarising optimisation results')
-parameters = ['n_estimators','max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split']
+# load in the optimisation results
+# load the trials data
+trials = pickle.load(open('%s%s_%s_rfbc_sentinel_lidar_agb_trials.p' % (path2alg,site_id,version), "rb"))
 
 # double check the number of accepted parameter sets
-success_count = 0
-fail_count = 0
-for tt in trials.trials:
-    if tt['result']['status']=='ok':
-        success_count+=1
-    else:
-        fail_count+=1
-
-
-trace = {}
-trace['scores'] = np.zeros(success_count)
-trace['iteration'] = np.arange(success_count)+1
-for pp in parameters:
-    trace[pp] = np.zeros(success_count)
-ii=0
-for tt in trials.trials:
-    if tt['result']['status']=='ok':
-        trace['scores'][ii] = tt['result']['loss']
-        for pp in parameters:
-            trace[pp][ii] = tt['misc']['vals'][pp][0]
-        ii+=1
-
-df = pd.DataFrame(data=trace)
-fig2,axes = gplt.plot_hyperparameter_search_scores(df,parameters)
-fig2.savefig('%s%s_%s_hyperpar_search_score_rfbc.png' % (path2fig,site_id,version))
-
-# Plot traces to see progression of hyperparameter selection
-fig3,axes = gplt.plot_hyperparameter_search_trace(df,parameters)
-fig3.savefig('%s%s_%s_hyperpar_search_trace_rfbc.png' % (path2fig,site_id,version))
-
-
-# Take best hyperparameter set and apply cal-val on full training set
-print('Applying cal-val to full training set and withheld validation set')
 best_score = np.inf
 for ii,tt in enumerate(trials.trials):
     if tt['result']['status']=='ok':
@@ -309,20 +136,44 @@ rf = RandomForestRegressor(bootstrap=True,
             min_impurity_split=None,   # threshold impurity within an internal node before it will be split
             min_samples_leaf=int(best_params['min_samples_leaf'][0]),       # ***The minimum number of samples required to be at a leaf node
             min_samples_split=int(best_params['min_samples_split'][0]),       # ***The minimum number of samples required to split an internal node
-            n_estimators=int(best_params['n_estimators'][0]),          # ***Number of trees in the random forest
-            n_jobs=-1,                 # The number of jobs to run in parallel for both fit and predict
+            n_estimators=int(best_params['n_estimators'][0]), # ***Number of trees in the random forest
+            n_jobs=20,                 # The number of jobs to run in parallel for both fit and predict
             oob_score=True,            # use out-of-bag samples to estimate the R^2 on unseen data
-            random_state=29,         # seed used by the random number generator
+            random_state=2940,         # seed used by the random number generator
             )
 
-rf1,rf2 = rff.rfbc_fit(rf,X,y)
-y_rfbc = rff.rfbc_predict(rf1,rf2,X)
-# Save random forest model for future use
-rf_dict = {}
-rf_dict['rf1']=rf1
-rf_dict['rf2']=rf2
-joblib.dump(rf_dict,'%s%s_%s_rfbc_sentinel_lidar_agb_bayes_opt.pkl' % (path2alg,site_id,version))
+"""
+#===============================================================================
+PART B: VALIDATION
+- Observed vs. modelled biomass using the blocked buffered strategy to avoid
+  bias due to spatial autocorrelation
+#-------------------------------------------------------------------------------
+"""
+# Set up k-fold cross validation
+block_res = 1000
+buffer_width = 100
+k=5
+cal_blocks,val_blocks = cv.get_k_fold_cal_val_blocked(lidar,block_res,buffer_width,training_mask=training_mask,k=k)
 
+# Take best hyperparameter set and apply cal-val on full training set
+print('Applying buffered k-fold cross validation')
+y_rfbc1 = rff.rfbc_predict(rfbc1['rf1'],rfbc1['rf2'],X[val_blocks==0])
+y_rfbc2 = rff.rfbc_predict(rfbc2['rf1'],rfbc2['rf2'],X[val_blocks==1])
+y_rfbc3 = rff.rfbc_predict(rfbc3['rf1'],rfbc3['rf2'],X[val_blocks==2])
+y_rfbc4 = rff.rfbc_predict(rfbc4['rf1'],rfbc4['rf2'],X[val_blocks==3])
+y_rfbc5 = rff.rfbc_predict(rfbc5['rf1'],rfbc5['rf2'],X[val_blocks==4])
+y_obs = np.hstack((y[val_blocks==0],y[val_blocks==1],y[val_blocks==2],y[val_blocks==3],y[val_blocks==4]))
+y_mod = np.hstack((y_rfbc1,y_rfbc2,y_rfbc3,y_rfbc4,y_rfbc5))
+temp1,temp2,r,temp3,temp4 = stats.linregress(y_obs,y_mod)
+r2 = r**2
+rmse = np.sqrt(np.mean((y_mod-y_obs)**2))
+rel_rmse = rmse/np.mean(y_obs)
+print("Validation\n\tR^2 = %.02f" % r2)
+print("\tRMSE = %.02f" % rmse)
+print("\trelative RMSE = %.02f" % rel_rmse)
+annotation = 'R$^2$ = %.2f\nRMSE = %.1f\nrelative RMSE = %.1f%s' % (r2,rmse,rel_rmse*100,'%')
+fig1, axes1 = gplt.plot_validation(y_obs,y_mod,annotation=annotation)
+fig1.savefig('%s%s_%s_%sm_validation_blocked_kfold.png' % (path2fig,site_id,version,resolution.zfill(3)))
 
 """
 #===============================================================================
@@ -427,43 +278,16 @@ for ii in range(n_iter):
         var_labels.append(lab)
     """
 # Plot importances
-
 imp_df = pd.DataFrame(data = {'variable': var_labels,
                             'permutation_importance': score_drops})
 
-fig5,axes = gplt.plot_permutation_importances(imp_df,show=True,figsize=[6,5],emphasis=['all sentinel','all alos'])
-fig5.savefig('%s%s_%s_permutation_importances_by_texture.png' % (path2fig,site_id,version))
+fig2,axes = gplt.plot_permutation_importances(imp_df,show=True,figsize=[6,5],emphasis=['all sentinel','all alos'])
+fig2.savefig('%s%s_%s_%sm_permutation_importances_by_texture.png' % (path2fig,site_id,version,resolution.zfill(3)))
 
 variable_mask = np.zeros(len(imp_df),dtype='bool')
 for ii,var in enumerate(imp_df['variable']):
     if "all" in var:
         variable_mask[ii]=True
 
-fig5,axes = gplt.plot_permutation_importances(imp_df[variable_mask],show=True,emphasis=['all sentinel','all alos'],figsize=[6,5])
-fig5.savefig('%s%s_%s_permutation_importances_summary.png' % (path2fig,site_id,version))
-
-
-"""
-#===============================================================================
-PART D: VALIDATION
-- Observed vs. modelled biomass using the blocked buffered strategy to avoid
-  bias due to spatial autocorrelation
-#-------------------------------------------------------------------------------
-"""
-y_rfbc1 = rff.rfbc_predict(rfbc1['rf1'],rfbc1['rf2'],X[val_blocks==0])
-y_rfbc2 = rff.rfbc_predict(rfbc2['rf1'],rfbc2['rf2'],X[val_blocks==1])
-y_rfbc3 = rff.rfbc_predict(rfbc3['rf1'],rfbc3['rf2'],X[val_blocks==2])
-y_rfbc4 = rff.rfbc_predict(rfbc4['rf1'],rfbc4['rf2'],X[val_blocks==3])
-y_rfbc5 = rff.rfbc_predict(rfbc5['rf1'],rfbc5['rf2'],X[val_blocks==4])
-y_obs = np.hstack((y[val_blocks==0],y[val_blocks==1],y[val_blocks==2],y[val_blocks==3],y[val_blocks==4]))
-y_mod = np.hstack((y_rfbc1,y_rfbc2,y_rfbc3,y_rfbc4,y_rfbc5))
-temp1,temp2,r,temp3,temp4 = stats.linregress(y_obs,y_mod)
-r2 = r**2
-rmse = np.sqrt(np.mean((y_mod-y_obs)**2))
-rel_rmse = rmse/np.mean(y_obs)
-print("Validation\n\tR^2 = %.02f" % r2)
-print("\tRMSE = %.02f" % rmse)
-print("\trelative RMSE = %.02f" % rel_rmse)
-annotation = 'R$^2$ = %.2f\nRMSE = %.1f\nrelative RMSE = %.1f%s' % (r2,rmse,rel_rmse*100,'%')
-fig6, axes6 = gplt.plot_validation(y_obs,y_mod,annotation=annotation)
-fig6.savefig('%s%s_%s_validation_blocked_kfold.png' % (path2fig,site_id,version))
+fig3,axes = gplt.plot_permutation_importances(imp_df[variable_mask],show=True,emphasis=['all sentinel','all alos'],figsize=[6,5])
+fig3.savefig('%s%s_%s_%sm_permutation_importances_summary.png' % (path2fig,site_id,version,resolution.zfill(3)))
