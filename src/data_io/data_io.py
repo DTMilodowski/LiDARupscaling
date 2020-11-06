@@ -193,20 +193,7 @@ def load_predictors(site_id = 'kiuic', path2data = "/exports/csce/datastore/geos
     files = glob.glob(path2lidar+site_id+'*.tif')
     template = xr.open_rasterio(files[0]).values[0]
     rows,cols=template.shape
-    """
-    agb_mc= np.zeros((len(files),rows,cols))
-    for ii, file in enumerate(files):
-        ndv=rasterio.open(file).nodatavals[0]
-        agb_mc[ii]=xr.open_rasterio(file).values[0]
-        agb_mc[ii][agb_mc[ii]==ndv]=np.nan
-    agb=np.median(agb_mc,axis=0)
-    target = agb#[mask]
-    agb_mc = None
-    print('Loaded LiDAR AGB data')
 
-    forest = xr.open_rasterio('%s/%s_forest_mask_20m.tif' % (path2mask,site_id)).values[0]
-    mask=forest==1
-    """
     data_layers = np.zeros((0,rows,cols))
     mask=np.ones((rows,cols),dtype='bool')
     nodata=[]
@@ -245,25 +232,7 @@ def load_predictors(site_id = 'kiuic', path2data = "/exports/csce/datastore/geos
 
         data_layers = np.concatenate((data_layers,alos),axis=0)
         print('Loaded ALOS data')
-    """
-    #create the empty array to store the predictors
-    predictors = np.zeros([mask.sum(),data_layers.shape[0]])
 
-    # check the mask dimensions
-    if len(mask.shape)>2:
-        print('\t\t caution shape of mask is: ', mask.shape)
-        mask = mask[0]
-
-    #iterate over variables to create the large array with data
-    counter = 0
-    for vv in range(0,data_layers.shape[0]):
-        predictors[:,counter] = data_layers[vv][mask]
-        counter += 1
-
-    print('Extracted layers, with corresponding LiDAR AGB')
-
-    return(data_layers,target,mask,labels)
-    """
     return(data_layers,mask,labels)
 
 """
