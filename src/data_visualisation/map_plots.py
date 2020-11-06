@@ -53,7 +53,7 @@ def plot_xarray(xarr, figure_name = None,figsize_x=8,figsize_y=6,vmin=None,
     return fig,axis
 
 # same as before, but places plot on an existing axis, rather than creating a new one
-def plot_xarray_to_axis(xarr, ax, vmin=None, vmax=None, cmap='viridis',
+def plot_xarray_to_axis(xarr, axis, vmin=None, vmax=None, cmap='viridis',
                 add_colorbar=False, cbar_kwargs={}, title="", subplot_kw={}):
     if vmin is None:
         vmin = np.nanmin(xarr)
@@ -70,10 +70,13 @@ def plot_xarray_to_axis(xarr, ax, vmin=None, vmax=None, cmap='viridis',
         else:
             if vmax < np.nanmax(xarr.values):
                 extend = 'max'
-        xarr.plot.imshow(ax=axis, vmin=vmin, vmax=vmax, cmap=cmap, add_colorbar=add_colorbar,
-                    extend=extend, cbar_kwargs=cbar_kwargs,transform = subplot_kw['projection'])
+        #xarr.plot.imshow(ax=axis, vmin=vmin, vmax=vmax, cmap=cmap, add_colorbar=add_colorbar,
+        #            extend=extend, cbar_kwargs=cbar_kwargs,transform = subplot_kw['projection'])
+        xarr.plot(ax=axis, vmin=vmin, vmax=vmax, cmap=cmap, add_colorbar=add_colorbar,
+                extend=extend, cbar_kwargs=cbar_kwargs)
     else:
-        xarr.plot.imshow(ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, add_colorbar=add_colorbar,transform = subplot_kw['projection'])
+        #xarr.plot.imshow(ax=axis, vmin=vmin, vmax=vmax, cmap=cmap, add_colorbar=add_colorbar,transform = subplot_kw['projection'])
+        xarr.plot.imshow(ax=axis, vmin=vmin, vmax=vmax, cmap=cmap, add_colorbar=add_colorbar)
     axis.set_aspect("equal")
     axis.set_title(title,fontsize=16)
     return 0
