@@ -40,17 +40,23 @@ if(os.path.isdir(path2fig)==False):
     os.mkdir(path2fig)
 path2clipped = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/sentinel/band_correction/overlap/'
 path2full = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/sentinel/band_correction/full_extent/'
-path2processed = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/sentinel/band_correction/processed/'
-path2final = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/sentinel/processed/'
-
+path2processed = '../data/processed_pre_texture/sentinel_10m/band_correction/processed/'
+path2final = '../data/processed_pre_texture/sentinel_10m/'
 # Extent
+"""
 N = 2231870.281
 S = 2170879.873
 E =  262713.933
 W = 201723.525
 xres = 9.998427514012533
 yres = -9.998427514012489
-
+"""
+N = 2230310
+S = 2171030
+E = 263207
+W = 197967
+xres=10
+yres=-10
 """
 #===============================================================================
 For each band
@@ -87,6 +93,17 @@ for bb in range(0,4):
 
     # use gdal to merge and warp to extent
     os.system("gdal_merge.py -a_nodata -9999 -ot float32 -o %s%s_b%s_temp.tif %s%s2_band%i_corrected.tif %s%s1_band%i.tif" % (path2final, site_id, band, path2processed, site_id, band, path2full, site_id, band))
-    os.system("gdalwarp -overwrite -te %f %f %f %f -tr %f %f -r bilinear %s%s_b%i_temp.tif %s%s_b%i_merge.tif" % (W,S,E,N,xres,yres,path2final, site_id, band,path2final, site_id, band))
+    os.system("gdalwarp -overwrite -te %f %f %f %f -tr %f %f -r near %s%s_b%i_temp.tif %s%s_b%i_10m.tif" % (W,S,E,N,xres,yres,path2final, site_id, band,path2final, site_id, band))
     os.system("rm %s%s_b%i_temp.tif" % (path2final, site_id, band))
-    os.system("chmod +777 %s%s_b%i_merge.tif" % (path2final, site_id, band))
+    os.system("chmod +777 %s%s_b%i_10m.tif" % (path2final, site_id, band))
+
+# calculate _ndvi# ndvi = (nir-red)/(nir+red)
+red=xr.open_rasterio('%s%s_b3_10m.tif' % (path2final,site_id))[0]
+nir=xr.open_rasterio('%s%s_b4_10m.tif' % (path2final,site_id))[0]
+mask=red.values<0
+ndvi=(nir-red)/(nir+red)
+ndvi.values[mask]=-9999
+outfile_prefix = '%s%s_ndvi_10m' % (path2final,site_id)
+io.write_xarray_to_GeoTiff(ndvi,outfile_prefix)
+
+os.system("chmod +777 %s%s_ndvi_10m.tif" % (path2final, site_id))
