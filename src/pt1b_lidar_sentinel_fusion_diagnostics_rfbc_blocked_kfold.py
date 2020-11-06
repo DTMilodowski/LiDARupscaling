@@ -70,7 +70,7 @@ Project Info
 """
 site_id = 'kiuic'
 version = '034'
-resolution = '20m'
+resolution = '20'
 path2data = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/'
 path2alg = '../saved_models/'
 if(os.path.isdir(path2alg)==False):
