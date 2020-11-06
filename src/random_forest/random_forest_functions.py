@@ -21,8 +21,9 @@ Input arguments are a RandomForestRegressor object (rf), the predictors matrix
 Returns: two fitted random forest models that are required for the bias
 correction
 """
-def rfbc_fit(rf1,X,y):
-    rf2 = deepcopy(rf1)
+def rfbc_fit(rf,X,y):
+    rf1 = deepcopy(rf)
+    rf2 = deepcopy(rf)
     # fit first random forest model to the observations, y
     rf1.fit(X,y)
     # Retrieve out of bag prediction
