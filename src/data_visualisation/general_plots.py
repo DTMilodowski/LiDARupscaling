@@ -17,8 +17,9 @@ from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.linear_model import LinearRegression
 
 import sys
-sys.path.append('../')
+sys.path.append('/exports/csce/datastore/geos/users/dmilodow/FOREST2020/LiDARupscaling/src/lidar_calibration')
 import stats_tools as st
+
 """
 Part 2: Random forests
 """
@@ -330,7 +331,7 @@ def plot_validation(y_obs,y_mod,annotation='',x_label='model', y_label='observed
                 hue='dens',palette=cmap,edgecolor='none',legend=False,ax=ax)
     x_range = np.arange([np.min(df['mod']),np.max(df['mod'])])
     #ax.plot(x_range,reg.predict(x_range.reshape(-1, 1)),'-',color='black')
-    ax.plot(x_range,x_range,'--',color='black')    axes[1].plot(val_mod_ref,val_mod_ref-val_res_mov,'-',color='black')
+    ax.plot(x_range,x_range,'--',color='black')
     ax.plot(mod_ref,mod_ref-res_mov,'-',color='black')
     ax.plot(mod_ref,mod_ref-res_mov-res_mov_sd,':',color='black')
     ax.plot(mod_ref,mod_ref-res_mov-res_mov_sd,':',color='black')
