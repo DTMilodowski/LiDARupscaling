@@ -69,9 +69,9 @@ import utility
 Project Info
 """
 site_id = 'kiuic'
-version = '034'
+version_trials='034'
+version = '035'
 resolution = '20'
-path2data = '/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/'
 path2alg = '../saved_models/'
 if(os.path.isdir(path2alg)==False):
     os.mkdir(path2alg)
@@ -90,7 +90,7 @@ Subsample if desired/required
 print('Loading data')
 
 # load a template raster
-lidar_agb_file = '/exports/csce/datastore/geos/users/dmilodow/FOREST2020/LiDARupscaling/data/lidar_calibration/kiuic_lidar_agb_%s_median.tif' % version
+lidar_agb_file = '../data/lidar_calibration/kiuic_lidar_agb_%s_median.tif' % version_trials
 lidar = io.load_geotiff(lidar_agb_file,option=1)
 target=lidar.values.copy()
 target[target<0] = np.nan
@@ -101,7 +101,7 @@ n_predictors = data_layers.shape[0]
 print(labels)
 
 # load forest mask
-forest_mask_file = "/exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/forest_mask/%s_forest_mask_20m.tif" % site_id
+forest_mask_file = "../data/forest_mask/%s_forest_mask_%sm.tif" % (site_id,resolution.zfill(3))
 forest = xr.open_rasterio(forest_mask_file).values[0]
 forest_mask=forest==1
 forest_mask = forest_mask*data_mask
@@ -118,7 +118,7 @@ y = target[training_mask]
 
 # load in the optimisation results
 # load the trials data
-trials = pickle.load(open('%s%s_%s_rfbc_sentinel_lidar_agb_trials.p' % (path2alg,site_id,version), "rb"))
+trials = pickle.load(open('%s%s_%s_rfbc_sentinel_lidar_agb_trials.p' % (path2alg,site_id,version_trials), "rb"))
 
 # double check the number of accepted parameter sets
 best_score = np.inf
