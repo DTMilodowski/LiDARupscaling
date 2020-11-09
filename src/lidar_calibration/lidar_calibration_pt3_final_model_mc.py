@@ -35,7 +35,8 @@ inventory_file = '../../data/lidar_calibration/Kiuic_400_live_trees.shp'
 raster_file = '../../data/LiDAR_data/GliHT_TCH_1m_100.tif'
 pt1_outfile = '../../data/lidar_calibration/kiuic_plot_lidar_sample_%s.npz' % version
 pt2_outfile = '../../saved_models/lidar_calibration/lidar_calibration_pt2_results_%s.npz' % version
-pt3_outfile_prefix = '../../data/lidar_calibration/kiuic_lidar_agb'
+pt3_output_dir = '../../data/lidar_calibration/'
+pt3_outfile_prefix = 'kiuic_lidar_agb'
 path2fig = '../../figures/'
 CI=0.95 # desired confidence interval
 
@@ -109,39 +110,45 @@ fig.savefig('%slidar_AGB_models_and_CI95_%s.png' % (path2fig,version))
 fig.show()
 
 # write arrays to file
-io.write_xarray_to_GeoTiff(agb_median,'%s_%s_median' % (pt3_outfile_prefix,version))
-io.write_xarray_to_GeoTiff(agb95_l,'%s_%s_95l' % (pt3_outfile_prefix,version))
-io.write_xarray_to_GeoTiff(agb95_u,'%s_%s_95u' % (pt3_outfile_prefix,version))
+labels = ['median','95l','95u']
+for ii, layer in enumerate([agb_median,agb95_l,agb95_u]):
+    outfile_20m = '%s/020m/%s_%s_%s' % (pt3_output_dir,pt3_outfile_prefix,version,labels[ii])
+    outfile_50m = '%s/050m/%s_%s_%s' % (pt3_output_dir,pt3_outfile_prefix,version,labels[ii])
+    outfile_100m = '%s/100m/%s_%s_%s' % (pt3_output_dir,pt3_outfile_prefix,version,labels[ii])
+
+    io.write_xarray_to_GeoTiff(layer,'%s' % outfile_20m)
+
+    os.system("gdalwarp -overwrite -dstnodata -9999 -tr 50 -50 -r average \
+            -t_srs '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs' \
+            %s.tif %s.tif" % (outfile_20m,outfile_50m))
+
+    os.system("gdalwarp -overwrite -dstnodata -9999 -tr 100 -100 -r average \
+            -t_srs '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs' \
+            %s.tif %s.tif" % (outfile_20m,outfile_100m))
+
 
 """
 ---------------------------------------------------------------------------------
-REGRID TO DESIRED RESOLUTION (1 ha)
+REGRID TO DESIRED RESOLUTION (0.25 ha and 1 ha)
 --------------------------------------------------------------------------------
 """
 
-outres = 100. # 100 m (i.e. 1 ha)
 agb20_mc = chm20.copy(deep=True)
 for ii in range(0,Niter):
     model = mc_results['fitted_models'][ii]
     agb20_mc.values[~mask] = np.nan
     agb20_mc.values[mask] = agb_mc[ii]
-    io.write_xarray_to_GeoTiff(agb20_mc,'%s_%s_20m_mc_%s' % (pt3_outfile_prefix, version, str(ii+1).zfill(3)))
-"""
-    os.system("gdalwarp -overwrite -dstnodata -9999 -tr 100 -100 -r average \
-            -t_srs '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs' \
-            %s_20m_mc_%s.tif %s_100m_mc_%s.tif" % (pt3_outfile_prefix, str(ii+1).zfill(3),
-            pt3_outfile_prefix, str(ii+1).zfill(3)))
 
-# equivalent for 0.25 ha
-outres = 50. # 100 m (i.e. 1 ha)
-agb20_mc = chm20.copy(deep=True)
-for ii in range(0,Niter):
-    model = mc_results['fitted_models'][ii]
-    agb20_mc.values[~mask] = np.nan
-    agb20_mc.values[mask] = agb_mc[ii]
-    io.write_xarray_to_GeoTiff(agb20_mc,'%s_%s_20m_mc_%s' % (pt3_outfile_prefix, version, str(ii+1).zfill(3)))
+    outfile_20m = '%s/020m/%s_%s_020m_mc_%s' % (pt3_output_dir,pt3_outfile_prefix, version, str(ii+1).zfill(3))
+    outfile_50m = '%s/050m/%s_%s_050m_mc_%s' % (pt3_output_dir,pt3_outfile_prefix, version, str(ii+1).zfill(3))
+    outfile_100m = '%s/100m/%s_%s_100m_mc_%s' % (pt3_output_dir,pt3_outfile_prefix, version, str(ii+1).zfill(3))
+
+    io.write_xarray_to_GeoTiff(agb20_mc,'%s' % outfile_20m)
+
     os.system("gdalwarp -overwrite -dstnodata -9999 -tr 50 -50 -r average \
             -t_srs '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs' \
-            %s_20m_mc_%s.tif %s_50m_mc_%s.tif" % (pt3_outfile_prefix, str(ii+1).zfill(3),
-            pt3_outfile_prefix, str(ii+1).zfill(3)))
-"""
+            %s.tif %s.tif" % (outfile_20m,outfile_50m))
+
+    os.system("gdalwarp -overwrite -dstnodata -9999 -tr 100 -100 -r average \
+            -t_srs '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs' \
+            %s.tif %s.tif" % (outfile_20m,outfile_100m))
