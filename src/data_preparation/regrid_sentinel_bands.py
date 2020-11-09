@@ -52,23 +52,28 @@ FOREST MASK - use mode
 - regrid to spatial extent and resolution required
 #-------------------------------------------------------------------------------
 """
-os.system("gdalwarp -overwrite -dstnodata -9999 -t_srs '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs' \
+resolution_labels = ['020m','050m','100m']
+for ii,res in enumerate([20,50,100]):
+    os.system("gdalwarp -overwrite -dstnodata -9999 -t_srs '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs' \
                 -te %f %f %f %f -tr %f %f -r mode -ot Float32\
                 /exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/forest_mask/kiuic_10_regridded.tif \
-                /exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/forest_mask/kiuic_forest_mask_20m.tif" % (W,S,E,N,xres20,yres20))
+                ../../data/forest_mask/kiuic_forest_mask_%s.tif" % (W,S,E,N,res,-res,resolution_labels[ii]))
 
 """
 #===============================================================================
 FOREST MANAGEMENT CLASSES
 #-------------------------------------------------------------------------------
 """
-os.system("gdal_rasterize -a_nodata -9999 -a OBJECTID_1 -of ENVI\
-            -a_srs '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs' \
-            -te %f %f %f %f -tr %f %f  \
-            /home/dmilodow/DataStore_DTM/FOREST2020/LiDARupscaling/data/State_PA_UTM.shp \
-            /home/dmilodow/DataStore_DTM/FOREST2020/LiDARupscaling/data/State_PA_UTM.tif" % (W,S,E,N,xres20,yres20))
-os.system("gdal_rasterize -a_nodata -9999 -a cat_id -of ENVI\
-            -a_srs '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs' \
-            -te %f %f %f %f -tr %f %f  \
-            /home/dmilodow/DataStore_DTM/FOREST2020/LiDARupscaling/data/National_PA_UTM.shp \
-            /home/dmilodow/DataStore_DTM/FOREST2020/LiDARupscaling/data/National_PA_UTM.tif" % (W,S,E,N,xres20,yres20))
+for ii,resolution in enumerate([20,50,100]):
+
+    os.system("gdal_rasterize -a_nodata -9999 -a OBJECTID_1 -of ENVI\
+                -a_srs '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs' \
+                -te %f %f %f %f -tr %f %f  \
+                ../../data/State_PA_UTM.shp \
+                ../../data/State_PA_UTM_%s.tif" % (W,S,E,N,res,-res,resolution_labels[ii]))
+
+    os.system("gdal_rasterize -a_nodata -9999 -a cat_id -of ENVI\
+                -a_srs '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs' \
+                -te %f %f %f %f -tr %f %f  \
+                ../../data/LiDARupscaling/data/National_PA_UTM.shp \
+                ../../data/National_PA_UTM_%s.tif" % (W,S,E,N,res,-res,resolution_labels[ii]))
