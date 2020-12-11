@@ -37,19 +37,12 @@ from scipy import ndimage as image
 
 # Import some parts of the scikit-learn library
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split, KFold
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 import joblib
-# immport hyperopt library
-from hyperopt import tpe, rand, Trials, fmin, hp, STATUS_OK, space_eval, STATUS_FAIL
-from hyperopt.pyll.base import scope
-from functools import partial
-from eli5.permutation_importance import get_score_importances
-
 import pickle
 
 # Import custom libaries
@@ -199,52 +192,6 @@ fig1, axes1 = gplt.plot_validation(y_obs,y_mod,annotation=annotation)
 fig1.savefig('%s%s_%s_%sm_validation_blocked_kfold.png' % (path2fig,site_id,version,resolution.zfill(3)))
 
 """
-rfbc1 = {}; rfbc2 = {}; rfbc3 = {}; rfbc4 = {}; rfbc5 = {}; rfbc6 = {}; rfbc7 = {}; rfbc8 = {}
-rfbc1['rf1'],rfbc1['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=0],y[cal_blocks!=0])
-rfbc2['rf1'],rfbc2['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=1],y[cal_blocks!=1])
-rfbc3['rf1'],rfbc3['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=2],y[cal_blocks!=2])
-rfbc4['rf1'],rfbc4['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=3],y[cal_blocks!=3])
-rfbc5['rf1'],rfbc5['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=4],y[cal_blocks!=4])
-rfbc6['rf1'],rfbc6['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=5],y[cal_blocks!=5])
-rfbc7['rf1'],rfbc7['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=6],y[cal_blocks!=6])
-rfbc8['rf1'],rfbc8['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=7],y[cal_blocks!=7])
-
-y_rfbc1 = rff.rfbc_predict(rfbc1['rf1'],rfbc1['rf2'],X[val_blocks==0])
-y_rfbc2 = rff.rfbc_predict(rfbc2['rf1'],rfbc2['rf2'],X[val_blocks==1])
-y_rfbc3 = rff.rfbc_predict(rfbc3['rf1'],rfbc3['rf2'],X[val_blocks==2])
-y_rfbc4 = rff.rfbc_predict(rfbc4['rf1'],rfbc4['rf2'],X[val_blocks==3])
-y_rfbc5 = rff.rfbc_predict(rfbc5['rf1'],rfbc5['rf2'],X[val_blocks==4])
-y_rfbc6 = rff.rfbc_predict(rfbc6['rf1'],rfbc6['rf2'],X[val_blocks==5])
-y_rfbc7 = rff.rfbc_predict(rfbc7['rf1'],rfbc7['rf2'],X[val_blocks==6])
-y_rfbc8 = rff.rfbc_predict(rfbc8['rf1'],rfbc8['rf2'],X[val_blocks==7])
-
-rfbc1 = {}; rfbc2 = {}; rfbc3 = {}; rfbc4 = {}; rfbc5 = {}; rfbc6 = {}; rfbc7 = {}; rfbc8 = {}
-rfbc1['rf1'],rfbc1['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter1']],y[cal_blocks['iter1']])
-rfbc2['rf1'],rfbc2['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter2']],y[cal_blocks['iter2']])
-rfbc3['rf1'],rfbc3['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter3']],y[cal_blocks['iter3']])
-rfbc4['rf1'],rfbc4['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter4']],y[cal_blocks['iter4']])
-rfbc5['rf1'],rfbc5['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter5']],y[cal_blocks['iter5']])
-rfbc6['rf1'],rfbc6['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter6']],y[cal_blocks['iter6']])
-rfbc7['rf1'],rfbc7['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter7']],y[cal_blocks['iter7']])
-rfbc8['rf1'],rfbc8['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter8']],y[cal_blocks['iter8']])
-
-y_rfbc1 = rff.rfbc_predict(rfbc1['rf1'],rfbc1['rf2'],X[val_blocks['iter1']])
-y_rfbc2 = rff.rfbc_predict(rfbc2['rf1'],rfbc2['rf2'],X[val_blocks['iter2']])
-y_rfbc3 = rff.rfbc_predict(rfbc3['rf1'],rfbc3['rf2'],X[val_blocks['iter3']])
-y_rfbc4 = rff.rfbc_predict(rfbc4['rf1'],rfbc4['rf2'],X[val_blocks['iter4']])
-y_rfbc5 = rff.rfbc_predict(rfbc5['rf1'],rfbc5['rf2'],X[val_blocks['iter5']])
-y_rfbc6 = rff.rfbc_predict(rfbc6['rf1'],rfbc6['rf2'],X[val_blocks['iter6']])
-y_rfbc7 = rff.rfbc_predict(rfbc7['rf1'],rfbc7['rf2'],X[val_blocks['iter7']])
-y_rfbc8 = rff.rfbc_predict(rfbc8['rf1'],rfbc8['rf2'],X[val_blocks['iter8']])
-
-
-#y_obs = np.hstack((y[val_blocks==0],y[val_blocks==1],y[val_blocks==2],y[val_blocks==3],y[val_blocks==4],y[val_blocks==5],y[val_blocks==6],y[val_blocks==7]))
-y_obs = np.hstack((y[val_blocks['iter1']],y[val_blocks['iter2']],y[val_blocks['iter3']],
-y[val_blocks['iter4']],y[val_blocks['iter5']],y[val_blocks['iter6']],
-y[val_blocks['iter7']],y[val_blocks['iter8']]))
-y_mod = np.hstack((y_rfbc1,y_rfbc2,y_rfbc3,y_rfbc4,y_rfbc5,y_rfbc6,y_rfbc7,y_rfbc8))
-"""
-"""
 #===============================================================================
 PART C: FEATURE IMPORTANCE
 - Feature importance calculated based on fraction of explained variance (i.e.
@@ -252,6 +199,11 @@ PART C: FEATURE IMPORTANCE
 - Five iterations, with mean and standard deviation reported and plotted.
 #-------------------------------------------------------------------------------
 """
+n_iter=3
+n = y.size
+score_drops = []
+var_labels=[]
+
 # First define the score random_forest_functions as fractional decrease in
 # variance explained
 def r2_score(X,y):
@@ -263,26 +215,6 @@ def r2_score(X,y):
         y_mod[index:index+n] = rff.rfbc_predict(rfbc_k['rfbc%i' % (ii+1)]['rf1'],rfbc_k['rfbc%i' % (ii+1)]['rf2'],X[val_blocks['iter%i' % (ii+1)]])
         y_obs[index:index+n] = y[val_blocks['iter%i' % (ii+1)]]
     return r**2
-"""
-def r2_score(X,y):
-    y_rfbc1 = rff.rfbc_predict(rfbc1['rf1'],rfbc1['rf2'],X[val_blocks['iter1']])
-    y_rfbc2 = rff.rfbc_predict(rfbc2['rf1'],rfbc2['rf2'],X[val_blocks['iter2']])
-    y_rfbc3 = rff.rfbc_predict(rfbc3['rf1'],rfbc3['rf2'],X[val_blocks['iter3']])
-    y_rfbc4 = rff.rfbc_predict(rfbc4['rf1'],rfbc4['rf2'],X[val_blocks['iter4']])
-    y_rfbc5 = rff.rfbc_predict(rfbc5['rf1'],rfbc5['rf2'],X[val_blocks['iter5']])
-    y_rfbc6 = rff.rfbc_predict(rfbc6['rf1'],rfbc6['rf2'],X[val_blocks['iter6']])
-    y_rfbc7 = rff.rfbc_predict(rfbc7['rf1'],rfbc7['rf2'],X[val_blocks['iter7']])
-    y_rfbc8 = rff.rfbc_predict(rfbc8['rf1'],rfbc8['rf2'],X[val_blocks['iter8']])
-
-    y_obs = np.hstack((y[val_blocks['iter1']],y[val_blocks['iter2']],y[val_blocks['iter3']],
-                    y[val_blocks['iter4']],y[val_blocks['iter5']],y[val_blocks['iter6']],
-                    y[val_blocks['iter7']],y[val_blocks['iter8']]))
-    y_mod = np.hstack((y_rfbc1,y_rfbc2,y_rfbc3,y_rfbc4,y_rfbc5,y_rfbc6,y_rfbc7,y_rfbc8))
-    temp1,temp2,r,temp3,temp4 = stats.linregress(y_obs,y_mod)
-    return r**2
-"""
-n_iter=3
-#base_score,score_drops = get_score_importances(r2_score,X,y,n_iter=n_iter)
 
 # Additional importance estimates that holistically consider the impact of
 # permuting all the layers from a given sensor
@@ -296,8 +228,6 @@ sentinel_labs = ['b1','b2','b3','b4','ndvi']
 texture_labs = ['mean','variance','contrast','correlation','dissimilarity','homogeneity','ASM']
 texture_labs_alt = ['enlee_20m','var','contr','corr','diss','hom','asm']
 texture_labs_display = ['mean','variance','contrast','correlation','dissimilarity','homogeneity','ASM']
-
-
 for ii,lab in enumerate(labels):
     if 'alos' in lab:
         alos_mask[ii] = True
@@ -305,13 +235,8 @@ for ii,lab in enumerate(labels):
         if ll in lab:
             sentinel_mask[ii] = True
 
-#sentinel_drops = np.zeros(n_iter)
-#alos_drops = np.zeros(n_iter)
-n = y.size
-score_drops = []
-var_labels=[]
-base_score = r2_score(X,y)
 print('\tpermutation importance...')
+base_score = r2_score(X,y)
 for ii in range(n_iter):
     print('\t\t...interation %i or %i, base_score = %.2f' % (ii+1,n_iter,base_score))
     X_sent = X.copy()
