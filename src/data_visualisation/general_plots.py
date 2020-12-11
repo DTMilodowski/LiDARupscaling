@@ -216,8 +216,7 @@ def plot_partial_dependencies_simple(rf, X, x_label=None, y_label=None, variable
     return fig6, ax
 
 
-def plot_partial_dependencies_multiple(rf, X, x_label=None, y_label=None,
-                                        variable_position=0, show=True):
+def plot_partial_dependencies_multiple(rf, X, x_label=None, y_label=None, variable_position=0, show=True):
     n_variables=X.shape[1]
 
     var_ = np.linspace(np.min(X[:,variable_position]),np.max(X[:,variable_position]),200)
@@ -310,9 +309,11 @@ def plot_hyperparameter_search_trace(df,parameters):
     plt.tight_layout()
     return fig,axes
 
-
+"""
+# Validation only
+""""
 # Validation plot
-def plot_validation(y_obs,y_mod,annotation='',x_label='model', y_label='observed', show=True):
+def plot_validation(y_obs,y_mod,annotation='',title=None, x_label='model', y_label='observed', show=True):
     data , x_e, y_e = np.histogram2d( y_obs, y_mod, bins = 50)
     z = interpn( ( 0.5*(x_e[1:] + x_e[:-1]) , 0.5*(y_e[1:]+y_e[:-1]) ) , data , np.vstack([y_obs,y_mod]).T , method = "splinef2d", bounds_error = False )
     idx = z.argsort()
@@ -329,21 +330,22 @@ def plot_validation(y_obs,y_mod,annotation='',x_label='model', y_label='observed
     fig4,ax= plt.subplots(nrows=1,ncols=1,figsize=[4,4])
     sns.scatterplot(x='model',y='obs',data=df,marker='.',
                 hue='dens',palette=cmap,edgecolor='none',legend=False,ax=ax)
-    x_range = np.arange([np.min(df['mod']),np.max(df['mod'])])
+    x_range = np.arange(df['model'].min(),df['model'].max())
     #ax.plot(x_range,reg.predict(x_range.reshape(-1, 1)),'-',color='black')
     ax.plot(x_range,x_range,'--',color='black')
-    ax.plot(mod_ref,mod_ref-res_mov,'-',color='black')
-    ax.plot(mod_ref,mod_ref-res_mov-res_mov_sd,':',color='black')
-    ax.plot(mod_ref,mod_ref-res_mov-res_mov_sd,':',color='black')
+    ax.plot(mod_ref,mod_ref+res_mov,'-',color='black')
+    ax.plot(mod_ref,mod_ref+res_mov-res_mov_sd,':',color='black')
+    ax.plot(mod_ref,mod_ref+res_mov+res_mov_sd,':',color='black')
     if len(annotation)>0:
         ax.annotate(annotation,xy=(0.05,0.95), xycoords='axes fraction',
                     backgroundcolor='none', ha='left', va='top')
-    sns.scatterplot(x='obs',y='model',data=df,marker='.',hue='dens',
-                palette=cmap,edgecolor='none',legend=False,ax=ax)
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
+    if title is not None:
+        ax.set_title(title)
     ax.axis('equal')
     ax.set_xlim(0,np.max(df['obs']))
+    ax.set_ylim(0,np.max(df['obs']))
     fig4.tight_layout()
     if show:
         fig4.show()
