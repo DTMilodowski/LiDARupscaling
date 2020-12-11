@@ -311,7 +311,7 @@ def plot_hyperparameter_search_trace(df,parameters):
 
 """
 # Validation only
-""""
+"""
 # Validation plot
 def plot_validation(y_obs,y_mod,annotation='',title=None, x_label='model', y_label='observed', show=True):
     data , x_e, y_e = np.histogram2d( y_obs, y_mod, bins = 50)
