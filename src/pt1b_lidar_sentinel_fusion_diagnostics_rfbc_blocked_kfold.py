@@ -90,16 +90,34 @@ Subsample if desired/required
 print('Loading data')
 
 # load a template raster
-lidar_agb_file = '../data/lidar_calibration/kiuic_lidar_agb_%s_median.tif' % version_trials
+lidar_agb_file = '../data/lidar_calibration/%sm/kiuic_lidar_agb_%s_median.tif' % (resolution.zfill(3),version_trials)
 lidar = io.load_geotiff(lidar_agb_file,option=1)
 target=lidar.values.copy()
 target[target<0] = np.nan
 
 # Load predictors & target
-data_layers,data_mask,labels = io.load_predictors(layers=['sentinel2','alos'],resolution=resolution)
+data_layers,data_mask,labels = io.load_predictors(layers=['sentinel2','alos'],
+                                                    resolution=resolution)
+#layers_to_remove = ['ASM','homogeneity','correlation']
+#layers_to_remove = ['ASM','homogeneity','correlation','contrast','dissimilarity']
+layers_to_remove = []
+n_predictors = data_layers.shape[0]
+layer_mask = np.ones(n_predictors,dtype='bool')
+labels_update=[]
+for ii,lab in enumerate(labels):
+    for layer in layers_to_remove:
+        if layer in lab:
+            print('remove', lab)
+            layer_mask[ii] = False
+    if layer_mask[ii]:
+        labels_update.append(lab)
+data_layers = data_layers[layer_mask]
+labels = labels_update
 n_predictors = data_layers.shape[0]
 print(labels)
-
+if resolution=='100':
+    data_layers=data_layers[:,:,:-1]
+    data_mask=data_mask[:,:-1]
 # load forest mask
 forest_mask_file = "../data/forest_mask/%s_forest_mask_%sm.tif" % (site_id,resolution.zfill(3))
 forest = xr.open_rasterio(forest_mask_file).values[0]
@@ -151,19 +169,24 @@ PART B: VALIDATION
 """
 # Set up k-fold cross validation
 block_res = 1000
-buffer_width = 100
-k=5
+buffer_width = 250
+k=8
+np.random.seed(1000)
 cal_blocks,val_blocks = cv.get_k_fold_cal_val_blocked(lidar,block_res,buffer_width,training_mask=training_mask,k=k)
-
 # Take best hyperparameter set and apply cal-val on full training set
 print('Applying buffered k-fold cross validation')
-y_rfbc1 = rff.rfbc_predict(rfbc1['rf1'],rfbc1['rf2'],X[val_blocks==0])
-y_rfbc2 = rff.rfbc_predict(rfbc2['rf1'],rfbc2['rf2'],X[val_blocks==1])
-y_rfbc3 = rff.rfbc_predict(rfbc3['rf1'],rfbc3['rf2'],X[val_blocks==2])
-y_rfbc4 = rff.rfbc_predict(rfbc4['rf1'],rfbc4['rf2'],X[val_blocks==3])
-y_rfbc5 = rff.rfbc_predict(rfbc5['rf1'],rfbc5['rf2'],X[val_blocks==4])
-y_obs = np.hstack((y[val_blocks==0],y[val_blocks==1],y[val_blocks==2],y[val_blocks==3],y[val_blocks==4]))
-y_mod = np.hstack((y_rfbc1,y_rfbc2,y_rfbc3,y_rfbc4,y_rfbc5))
+rfbc_k = {}
+y_obs = np.zeros(y.size)
+y_mod = np.zeros(y.size)
+index = 0
+for ii in range(0,k):
+    n = val_blocks['iter%i' % (ii+1)].sum()
+    print(n)
+    rfbc_k['rfbc%i' % (ii+1)] = {}
+    rfbc_k['rfbc%i' % (ii+1)]['rf1'],rfbc_k['rfbc%i' % (ii+1)]['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter%i' % (ii+1)]],y[cal_blocks['iter%i' % (ii+1)]])
+    y_mod[index:index+n] =  rff.rfbc_predict(rfbc_k['rfbc%i' % (ii+1)]['rf1'],rfbc_k['rfbc%i' % (ii+1)]['rf2'],X[val_blocks['iter%i' % (ii+1)]])
+    y_obs[index:index+n] = y[val_blocks['iter%i' % (ii+1)]]
+    index+=n
 temp1,temp2,r,temp3,temp4 = stats.linregress(y_obs,y_mod)
 r2 = r**2
 rmse = np.sqrt(np.mean((y_mod-y_obs)**2))
@@ -171,10 +194,56 @@ rel_rmse = rmse/np.mean(y_obs)
 print("Validation\n\tR^2 = %.02f" % r2)
 print("\tRMSE = %.02f" % rmse)
 print("\trelative RMSE = %.02f" % rel_rmse)
-annotation = 'R$^2$ = %.2f\nRMSE = %.1f\nrelative RMSE = %.1f%s' % (r2,rmse,rel_rmse*100,'%')
+annotation = 'R$^2$ = %.2f\nRMSE = %.1f Mg ha$^{-1}$\nrelative RMSE = %.1f%s' % (r2,rmse,rel_rmse*100,'%')
 fig1, axes1 = gplt.plot_validation(y_obs,y_mod,annotation=annotation)
 fig1.savefig('%s%s_%s_%sm_validation_blocked_kfold.png' % (path2fig,site_id,version,resolution.zfill(3)))
 
+"""
+rfbc1 = {}; rfbc2 = {}; rfbc3 = {}; rfbc4 = {}; rfbc5 = {}; rfbc6 = {}; rfbc7 = {}; rfbc8 = {}
+rfbc1['rf1'],rfbc1['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=0],y[cal_blocks!=0])
+rfbc2['rf1'],rfbc2['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=1],y[cal_blocks!=1])
+rfbc3['rf1'],rfbc3['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=2],y[cal_blocks!=2])
+rfbc4['rf1'],rfbc4['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=3],y[cal_blocks!=3])
+rfbc5['rf1'],rfbc5['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=4],y[cal_blocks!=4])
+rfbc6['rf1'],rfbc6['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=5],y[cal_blocks!=5])
+rfbc7['rf1'],rfbc7['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=6],y[cal_blocks!=6])
+rfbc8['rf1'],rfbc8['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=7],y[cal_blocks!=7])
+
+y_rfbc1 = rff.rfbc_predict(rfbc1['rf1'],rfbc1['rf2'],X[val_blocks==0])
+y_rfbc2 = rff.rfbc_predict(rfbc2['rf1'],rfbc2['rf2'],X[val_blocks==1])
+y_rfbc3 = rff.rfbc_predict(rfbc3['rf1'],rfbc3['rf2'],X[val_blocks==2])
+y_rfbc4 = rff.rfbc_predict(rfbc4['rf1'],rfbc4['rf2'],X[val_blocks==3])
+y_rfbc5 = rff.rfbc_predict(rfbc5['rf1'],rfbc5['rf2'],X[val_blocks==4])
+y_rfbc6 = rff.rfbc_predict(rfbc6['rf1'],rfbc6['rf2'],X[val_blocks==5])
+y_rfbc7 = rff.rfbc_predict(rfbc7['rf1'],rfbc7['rf2'],X[val_blocks==6])
+y_rfbc8 = rff.rfbc_predict(rfbc8['rf1'],rfbc8['rf2'],X[val_blocks==7])
+
+rfbc1 = {}; rfbc2 = {}; rfbc3 = {}; rfbc4 = {}; rfbc5 = {}; rfbc6 = {}; rfbc7 = {}; rfbc8 = {}
+rfbc1['rf1'],rfbc1['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter1']],y[cal_blocks['iter1']])
+rfbc2['rf1'],rfbc2['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter2']],y[cal_blocks['iter2']])
+rfbc3['rf1'],rfbc3['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter3']],y[cal_blocks['iter3']])
+rfbc4['rf1'],rfbc4['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter4']],y[cal_blocks['iter4']])
+rfbc5['rf1'],rfbc5['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter5']],y[cal_blocks['iter5']])
+rfbc6['rf1'],rfbc6['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter6']],y[cal_blocks['iter6']])
+rfbc7['rf1'],rfbc7['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter7']],y[cal_blocks['iter7']])
+rfbc8['rf1'],rfbc8['rf2'] = rff.rfbc_fit(rf,X[cal_blocks['iter8']],y[cal_blocks['iter8']])
+
+y_rfbc1 = rff.rfbc_predict(rfbc1['rf1'],rfbc1['rf2'],X[val_blocks['iter1']])
+y_rfbc2 = rff.rfbc_predict(rfbc2['rf1'],rfbc2['rf2'],X[val_blocks['iter2']])
+y_rfbc3 = rff.rfbc_predict(rfbc3['rf1'],rfbc3['rf2'],X[val_blocks['iter3']])
+y_rfbc4 = rff.rfbc_predict(rfbc4['rf1'],rfbc4['rf2'],X[val_blocks['iter4']])
+y_rfbc5 = rff.rfbc_predict(rfbc5['rf1'],rfbc5['rf2'],X[val_blocks['iter5']])
+y_rfbc6 = rff.rfbc_predict(rfbc6['rf1'],rfbc6['rf2'],X[val_blocks['iter6']])
+y_rfbc7 = rff.rfbc_predict(rfbc7['rf1'],rfbc7['rf2'],X[val_blocks['iter7']])
+y_rfbc8 = rff.rfbc_predict(rfbc8['rf1'],rfbc8['rf2'],X[val_blocks['iter8']])
+
+
+#y_obs = np.hstack((y[val_blocks==0],y[val_blocks==1],y[val_blocks==2],y[val_blocks==3],y[val_blocks==4],y[val_blocks==5],y[val_blocks==6],y[val_blocks==7]))
+y_obs = np.hstack((y[val_blocks['iter1']],y[val_blocks['iter2']],y[val_blocks['iter3']],
+y[val_blocks['iter4']],y[val_blocks['iter5']],y[val_blocks['iter6']],
+y[val_blocks['iter7']],y[val_blocks['iter8']]))
+y_mod = np.hstack((y_rfbc1,y_rfbc2,y_rfbc3,y_rfbc4,y_rfbc5,y_rfbc6,y_rfbc7,y_rfbc8))
+"""
 """
 #===============================================================================
 PART C: FEATURE IMPORTANCE
@@ -186,34 +255,48 @@ PART C: FEATURE IMPORTANCE
 # First define the score random_forest_functions as fractional decrease in
 # variance explained
 def r2_score(X,y):
-    y_rfbc1 = rff.rfbc_predict(rfbc1['rf1'],rfbc1['rf2'],X[val_blocks==0])
-    y_rfbc2 = rff.rfbc_predict(rfbc2['rf1'],rfbc2['rf2'],X[val_blocks==1])
-    y_rfbc3 = rff.rfbc_predict(rfbc3['rf1'],rfbc3['rf2'],X[val_blocks==2])
-    y_rfbc4 = rff.rfbc_predict(rfbc4['rf1'],rfbc4['rf2'],X[val_blocks==3])
-    y_rfbc5 = rff.rfbc_predict(rfbc5['rf1'],rfbc5['rf2'],X[val_blocks==4])
-    y_obs = np.hstack((y[val_blocks==0],y[val_blocks==1],y[val_blocks==2],y[val_blocks==3],y[val_blocks==4]))
-    y_mod = np.hstack((y_rfbc1,y_rfbc2,y_rfbc3,y_rfbc4,y_rfbc5))
+    y_obs = np.zeros(y.size)
+    y_mod = np.zeros(y.size)
+    index = 0
+    for ii in range(0,k):
+        n = val_blocks['iter%i' % (ii+1)].sum()
+        y_mod[index:index+n] = rff.rfbc_predict(rfbc_k['rfbc%i' % (ii+1)]['rf1'],rfbc_k['rfbc%i' % (ii+1)]['rf2'],X[val_blocks['iter%i' % (ii+1)]])
+        y_obs[index:index+n] = y[val_blocks['iter%i' % (ii+1)]]
+    return r**2
+"""
+def r2_score(X,y):
+    y_rfbc1 = rff.rfbc_predict(rfbc1['rf1'],rfbc1['rf2'],X[val_blocks['iter1']])
+    y_rfbc2 = rff.rfbc_predict(rfbc2['rf1'],rfbc2['rf2'],X[val_blocks['iter2']])
+    y_rfbc3 = rff.rfbc_predict(rfbc3['rf1'],rfbc3['rf2'],X[val_blocks['iter3']])
+    y_rfbc4 = rff.rfbc_predict(rfbc4['rf1'],rfbc4['rf2'],X[val_blocks['iter4']])
+    y_rfbc5 = rff.rfbc_predict(rfbc5['rf1'],rfbc5['rf2'],X[val_blocks['iter5']])
+    y_rfbc6 = rff.rfbc_predict(rfbc6['rf1'],rfbc6['rf2'],X[val_blocks['iter6']])
+    y_rfbc7 = rff.rfbc_predict(rfbc7['rf1'],rfbc7['rf2'],X[val_blocks['iter7']])
+    y_rfbc8 = rff.rfbc_predict(rfbc8['rf1'],rfbc8['rf2'],X[val_blocks['iter8']])
+
+    y_obs = np.hstack((y[val_blocks['iter1']],y[val_blocks['iter2']],y[val_blocks['iter3']],
+                    y[val_blocks['iter4']],y[val_blocks['iter5']],y[val_blocks['iter6']],
+                    y[val_blocks['iter7']],y[val_blocks['iter8']]))
+    y_mod = np.hstack((y_rfbc1,y_rfbc2,y_rfbc3,y_rfbc4,y_rfbc5,y_rfbc6,y_rfbc7,y_rfbc8))
     temp1,temp2,r,temp3,temp4 = stats.linregress(y_obs,y_mod)
     return r**2
-
-rfbc1 = {}; rfbc2 = {}; rfbc3 = {}; rfbc4 = {}; rfbc5 = {}
-rfbc1['rf1'],rfbc1['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=0],y[cal_blocks!=0])
-rfbc2['rf1'],rfbc2['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=1],y[cal_blocks!=1])
-rfbc3['rf1'],rfbc3['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=2],y[cal_blocks!=2])
-rfbc4['rf1'],rfbc4['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=3],y[cal_blocks!=3])
-rfbc5['rf1'],rfbc5['rf2'] = rff.rfbc_fit(rf,X[cal_blocks!=4],y[cal_blocks!=4])
-
-n_iter=5
-base_score,score_drops = get_score_importances(r2_score,X,y,n_iter=n_iter)
+"""
+n_iter=3
+#base_score,score_drops = get_score_importances(r2_score,X,y,n_iter=n_iter)
 
 # Additional importance estimates that holistically consider the impact of
 # permuting all the layers from a given sensor
 alos_mask = np.zeros(n_predictors,dtype='bool')
 sentinel_mask = np.zeros(n_predictors,dtype='bool')
 sentinel_labs = ['b1','b2','b3','b4','ndvi']
-texture_labs = ['value','contrast','correlation','dissimilarity','entropy','homogeneity','mean','second_moment','variance']
-texture_labs_alt = ['value','cont','corr','diss','ent','hom','mean','s_m_','var']
-texture_labs_display = ['value','contrast','correlation','dissimilarity','entropy','homogeneity','mean','second moment','variance']
+#texture_labs = ['value','contrast','correlation','dissimilarity','entropy','homogeneity','mean','second_moment','variance']
+#texture_labs_alt = ['value','cont','corr','diss','ent','hom','mean','s_m_','var']
+#texture_labs_display = ['value','contrast','correlation','dissimilarity','entropy','homogeneity','mean','second moment','variance']
+
+texture_labs = ['mean','variance','contrast','correlation','dissimilarity','homogeneity','ASM']
+texture_labs_alt = ['enlee_20m','var','contr','corr','diss','hom','asm']
+texture_labs_display = ['mean','variance','contrast','correlation','dissimilarity','homogeneity','ASM']
+
 
 for ii,lab in enumerate(labels):
     if 'alos' in lab:
@@ -259,10 +342,11 @@ for ii in range(n_iter):
     for tt,texture in enumerate(texture_labs):
         X_shuffle = X.copy()
         for ll,lab in enumerate(labels):
-            if texture == 'value':
-                if len(lab) <20:
-                    X_shuffle[:,ll]=X_permute[:,ll]
-            elif texture in lab:
+            #if texture == 'value':
+            #    if len(lab) <20:
+            #        X_shuffle[:,ll]=X_permute[:,ll]
+            #el
+            if texture in lab:
                 X_shuffle[:,ll]=X_permute[:,ll]
             elif texture_labs_alt[tt] in lab:
                 X_shuffle[:,ll]=X_permute[:,ll]
@@ -291,3 +375,72 @@ for ii,var in enumerate(imp_df['variable']):
 
 fig3,axes = gplt.plot_permutation_importances(imp_df[variable_mask],show=True,emphasis=['all sentinel','all alos'],figsize=[6,5])
 fig3.savefig('%s%s_%s_%sm_permutation_importances_summary.png' % (path2fig,site_id,version,resolution.zfill(3)))
+
+
+"""
+Aggregation to 1ha
+"""
+
+lidar_cal = np.load('../../saved_models/lidar_calibration/lidar_calibration_pt2_results_%s.npz' % version, allow_pickle=True)['arr_0'][()]['loo_results']
+
+model_20m = lidar.copy(deep=True)
+model_20m.values*=np.nan
+placement = model_20m.values[training_mask]
+index = 0
+for ii in range(0,k):
+    n = val_blocks['iter%i' % (ii+1)].sum()
+    placement[val_blocks['iter%i' % (ii+1)]] = rff.rfbc_predict(rfbc_k['rfbc%i' % (ii+1)]['rf1'],rfbc_k['rfbc%i' % (ii+1)]['rf2'],X[val_blocks['iter%i' % (ii+1)]])
+model_20m.values[training_mask]=placement.copy()
+
+
+# plot up the residuals
+obs_20m=lidar.copy(deep=True)
+obs_20m.values[~training_mask]=np.nan
+residuals = obs_20m-model_20m
+fig,axes = plt.subplots(nrows=1,ncols=3,figsize=(12,5),sharex='all',sharey='all')
+obs_20m[0:700,1600:2100].plot.imshow(ax=axes[0],vmin=0,vmax=200,
+                cbar_kwargs={'label':'lidar / Mg/ha','orientation':'horizontal'})
+model_20m[0:700,1600:2100].plot.imshow(ax=axes[1],vmin=0,vmax=200,
+                cbar_kwargs={'label':'satellite / Mg/ha','orientation':'horizontal'})
+residuals[0:700,1600:2100].plot.imshow(ax=axes[2],vmin=-150,vmax=150,cmap='bwr',
+                cbar_kwargs={'label':'residual / Mg/ha','orientation':'horizontal'})
+axes[0].scatter(x=lidar_cal['x'],y=lidar_cal['y'],c=lidar_cal['residual'],cmap='bwr',vmin=-150,vmax=150)
+fig.show()
+
+#plt.colorbar(im1,ax=axes[0],label='lidar / Mg/ha',orientation='horizontal')
+im2 = axes[1].imshow(model_20m[0:700,1600:2100],vmin=0,vmax=200)
+plt.colorbar(im2,ax=axes[1],label='satellite / Mg/ha',orientation='horizontal')
+im3 = axes[2].imshow(residuals[0:700,1600:2100],vmin=-150,vmax=150,cmap='bwr')
+plt.colorbar(im3,label='residual / Mg/ha',orientation='horizontal',ax=axes[2])
+plt.show()
+
+
+if resolution in ['50','050']:
+    block_width=2
+else:
+    block_width=5
+rows_1ha = model_20m.shape[0]//block_width
+cols_1ha = model_20m.shape[1]//block_width
+model_1ha = np.zeros((rows_1ha,cols_1ha))
+obs_1ha = np.zeros((rows_1ha,cols_1ha))
+
+for rr,row in enumerate(np.arange(0,model_20m.shape[0]-block_width,block_width)):
+    for cc, col in enumerate(np.arange(0,model_20m.shape[1]-block_width,block_width)):
+        model_1ha[rr,cc]=np.mean(model_20m[row:row+block_width,col:col+block_width])
+        obs_1ha[rr,cc]=np.mean(obs_20m[row:row+block_width,col:col+block_width])
+
+y_obs_ha = obs_1ha[np.isfinite(obs_1ha)]
+y_mod_ha = model_1ha[np.isfinite(model_1ha)]
+temp1,temp2,r,temp3,temp4 = stats.linregress(y_obs_ha,y_mod_ha)
+r2 = r**2
+rmse = np.sqrt(np.mean((y_mod-y_obs)**2))
+rel_rmse = rmse/np.mean(y_obs)
+print("Validation\n\tR^2 = %.02f" % r2)
+print("\tRMSE = %.02f" % rmse)
+print("\trelative RMSE = %.02f" % rel_rmse)
+annotation = 'R$^2$ = %.2f\nRMSE = %.1f Mg ha$^{-1}$\nrelative RMSE = %.1f%s' % (r2,rmse,rel_rmse*100,'%')
+x_label = 'AGB$_{satellite}$ / Mg ha$^{-1}$'
+y_label = 'AGB$_{LiDAR}$ / Mg ha$^{-1}$'
+title =  'Upscaling resolution: %sm' % resolution
+fig1, axes1 = gplt.plot_validation(y_obs,y_mod,annotation=annotation,title=title,x_label=x_label,y_label=y_label)
+fig1.savefig('%s%s_%s_%sm_res_1ha_validation_blocked_kfold.png' % (path2fig,site_id,version,resolution.zfill(3)))
