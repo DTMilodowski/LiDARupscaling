@@ -59,6 +59,12 @@ for ii,res in enumerate([20,50,100]):
                 /exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/forest_mask/kiuic_10_regridded.tif \
                 ../../data/forest_mask/kiuic_forest_mask_%s.tif" % (W,S,E,N,res,-res,resolution_labels[ii]))
 
+    os.system("gdalwarp -overwrite -dstnodata -9999 -t_srs '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs' \
+                -te %f %f %f %f -tr %f %f -r mode -ot Float32\
+                /exports/csce/datastore/geos/groups/gcel/YucatanBiomass/data/land_cover/kiuic_4_classes_30m.tif \
+                ../../data/forest_mask/kiuic_land_cover_%s.tif" % (W,S,E,N,res,-res,resolution_labels[ii]))
+
+
 """
 #===============================================================================
 FOREST MANAGEMENT CLASSES
