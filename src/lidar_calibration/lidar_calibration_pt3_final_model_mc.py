@@ -30,7 +30,7 @@ import data_io as io
 
 # CHANGE THIS STUFF
 # Some file names - shapefiles and rasters should be in a projected coordinate system (i.e. UTM)
-version = '034'
+version = '035'
 inventory_file = '../../data/lidar_calibration/Kiuic_400_live_trees.shp'
 raster_file = '../../data/LiDAR_data/GliHT_TCH_1m_100.tif'
 pt1_outfile = '../../data/lidar_calibration/kiuic_plot_lidar_sample_%s.npz' % version

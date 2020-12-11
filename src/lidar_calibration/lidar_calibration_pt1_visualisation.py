@@ -28,7 +28,7 @@ import gc
 
 # CHANGE THIS STUFF
 # Some file names - shapefiles and rasters should be in a projected coordinate system (i.e. UTM)
-version = '034'
+version = '035'
 las_file_list = './las_list.txt'
 inventory_file = '../../data/lidar_calibration/Kiuic_400_live_biomass_unc.shp'
 raster_file = '../../data/LiDAR_data/GliHT_TCH_1m_100.tif'
@@ -113,6 +113,7 @@ for pp, plot in enumerate(plot_clusters):
             dem_sub.values/=100. # rescale chm values
 
             if np.sum(np.isfinite(chm_sub.values))>0:
+                """
                 # load point cloud data
                 lidar_pts, starting_ids, trees = lidar.load_lidar_data_by_polygon(las_file_list,polygon_around_plot)
 
@@ -122,7 +123,7 @@ for pp, plot in enumerate(plot_clusters):
                 YY=YY.ravel()
                 ZZ=dem_sub.values.ravel()
                 temp_ids, dem_trees = lidar.create_KDTree(np.array([XX,YY]).T)
-
+                """
                 for subplot in inventory:
                     if ('%.0f' % subplot['properties']['plot'])==plot:
                         id = '%.0f.%.0f' % (subplot['properties']['plot'],subplot['properties']['subplot'])
@@ -131,11 +132,14 @@ for pp, plot in enumerate(plot_clusters):
                         # for NFI, add in expected AGB component from small stems
                         if len(id)>5:
                             inventory_AGB[id]={'AGB':subplot['properties']['agb']+small_stem_agb,
-                                                'uncertainty':np.sqrt(subplot['properties']['unc']**2+small_stem_std**2)}
-
+                                                'uncertainty':np.sqrt(subplot['properties']['unc']**2+small_stem_std**2),
+                                                'x':subplot['geometry']['coordinates'][0],
+                                                'y':subplot['geometry']['coordinates'][1]}
                         else:
                             inventory_AGB[id]={'AGB':subplot['properties']['agb'],
-                                                'uncertainty':subplot['properties']['unc']}
+                                                'uncertainty':subplot['properties']['unc'],
+                                                'x':subplot['geometry']['coordinates'][0],
+                                                'y':subplot['geometry']['coordinates'][1]}
 
                         plot_centre = Point(subplot['geometry']['coordinates'][0],subplot['geometry']['coordinates'][1])
                         chm_results[id] = gst.sample_raster_by_point_neighbourhood(chm_sub,plot_centre,radius,x_dim='x',y_dim='y',label = id)
@@ -143,7 +147,7 @@ for pp, plot in enumerate(plot_clusters):
 
                         if np.mean(np.isfinite(chm_results[id]['raster_values'][0].values))>=.9:
                             chm_results[id]['quantiles'] = st.weighted_quantiles(chm_results[id]['raster_values'][0].values,chm_results[id]['weights'],quantiles)
-
+                            """
                             # now get canopy cover directly from LiDAR point cloud
                             pts_sub = lidar_tools.filter_lidar_data_by_neighbourhood(lidar_pts,[subplot['geometry']['coordinates'][0],subplot['geometry']['coordinates'][1]],radius)
                             point_heights = np.zeros(pts_sub.shape[0])
@@ -157,6 +161,7 @@ for pp, plot in enumerate(plot_clusters):
                             chm_results[id]['cover_fraction_from_pointcloud'] = np.sum(point_weights[canopy_mask]/np.sum(point_weights))
                             chm_results[id]['point_cloud'] = pts_sub.copy()
                             chm_results[id]['point_heights'] = point_heights.copy()
+                            """
                         else:
                             chm_results[id]['status']='FAIL'
 

@@ -81,8 +81,8 @@ def qq_plot(variable,fig=None,ax=None,ci=.95,ylabel = "",show=True,savename = No
         fig.savefig(savename)
 
 # moving average filter
-def moving_bin_residual(x_mod,x_obs,bin_halfwidth=10,post_spacing=1):
-    res = x_mod-x_obs
+def moving_bin_residual(x_mod,x_obs,bin_halfwidth=10,post_spacing=1.):
+    res = x_obs-x_mod
     x = np.arange(x_mod.min(),x_mod.max(),post_spacing)
     res_ = np.zeros(x.shape)*np.nan
     res_sd = np.zeros(x.shape)*np.nan
@@ -90,10 +90,10 @@ def moving_bin_residual(x_mod,x_obs,bin_halfwidth=10,post_spacing=1):
         if xi-x.min() < bin_halfwidth + 1:
             mask = x_mod<(x.min()+2*bin_halfwidth+1)
         elif x.max()-xi < bin_halfwidth + 1:
-            mask = x_mod>(x.max()-2*bin_halfwidth+1)
+            mask = x_mod>=(x.max()-2*bin_halfwidth+1)
         else:
-            mask = (x_mod>=xi-bin_halfwidth) * (x_mod<xi+bin_halfwidth)
-
-        res_[ii] = np.mean(res[mask])
+            mask = (x_mod>=xi-bin_halfwidth) * (x_mod<=xi+bin_halfwidth)
+        res_[ii] = np.median(res[mask])
         res_sd[ii] = np.std(res[mask])
+
     return x,res_,res_sd

@@ -49,7 +49,7 @@ inventory_AGB = pt1_output['inventory']
 # COLLATE DATA INTO ARRAYS
 ID=[]; AGB = []; AGB_UNC = []; TCH = []; COVER2 = []; NODATA = []; TCH_SD = [];
 TCH_all = []; QUANTILES = []; QUANTILES_all = []; COVER_all = [];
-COVER10=[]; COVERmean=[]; H95=[]
+COVER10=[]; COVERmean=[]; H95=[]; X = []; Y = []
 CI95_l=[];CI95_u=[];CI50_l=[];CI50_u=[]
 COLLECTION = []
 for plot in chm_results.keys():
@@ -63,6 +63,8 @@ for plot in chm_results.keys():
                     ID.append(id)
                     AGB.append(inventory_AGB[id]['AGB'])
                     AGB_UNC.append(inventory_AGB[id]['uncertainty'])
+                    X.append(inventory_AGB[id]['x'])
+                    Y.append(inventory_AGB[id]['y'])
                     #TCH.append(mean_tch)
                     TCH.append(np.median(chm_results[id]['tch_mc']))
                     TCH_all.append(chm_results[id]['tch_mc'].copy())
@@ -70,15 +72,15 @@ for plot in chm_results.keys():
                     QUANTILES.append(chm_results[id]['quantiles'].copy())
                     TCH_SD.append(np.sqrt(np.nansum(weights*(chm_results[id]['raster_values'][0].values-mean_tch)**2)))
 
-                    pts_sub = chm_results[id]['point_cloud'].copy()
-                    point_heights = chm_results[id]['point_heights'].copy()
-                    point_weights = 1/pts_sub[:,7]
+                    #pts_sub = chm_results[id]['point_cloud'].copy()
+                    #point_heights = chm_results[id]['point_heights'].copy()
+                    #point_weights = 1/pts_sub[:,7]
 
-                    COVER2.append(chm_results[id]['cover_fraction_from_pointcloud'])
-                    COVER10.append(np.sum(point_weights[point_heights>=10]/np.sum(point_weights)))
-                    COVERmean.append(np.sum(point_weights[point_heights>=mean_tch]/np.sum(point_weights)))
+                    #COVER2.append(chm_results[id]['cover_fraction_from_pointcloud'])
+                    #COVER10.append(np.sum(point_weights[point_heights>=10]/np.sum(point_weights)))
+                    #COVERmean.append(np.sum(point_weights[point_heights>=mean_tch]/np.sum(point_weights)))
 
-                    COVER_all.append(chm_results[id]['cover_fraction_from_pointcloud_mc'].copy())
+                    #COVER_all.append(chm_results[id]['cover_fraction_from_pointcloud_mc'].copy())
                     NODATA.append(np.mean(~np.isfinite(chm_results[id]['raster_values'][0].values)))
 
                     H95.append(np.percentile(chm_results[id]['tch_mc'],97.5)-np.percentile(chm_results[id]['tch_mc'],2.5))
@@ -99,12 +101,13 @@ for plot in chm_results.keys():
 AGB = np.asarray(AGB); AGB_UNC = np.asarray(AGB_UNC); TCH = np.asarray(TCH);
 TCH_SD = np.asarray(TCH_SD); ID = np.asarray(ID); TCH_all = np.asarray(TCH_all)
 QUANTILES_all = np.asarray(QUANTILES_all); QUANTILES = np.asarray(QUANTILES)
-COVER2 = np.asarray(COVER2); COVER_all = np.asarray(COVER_all); COVER10 = np.asarray(COVER10);
-COVERmean = np.asarray(COVERmean); H95=np.asarray(H95); COLLECTION = np.asarray(COLLECTION)
+#COVER2 = np.asarray(COVER2); COVER_all = np.asarray(COVER_all); COVER10 = np.asarray(COVER10);
+#COVERmean = np.asarray(COVERmean); H95=np.asarray(H95); COLLECTION = np.asarray(COLLECTION)
 TCH_SDrel = TCH_SD/TCH
 CI95_l=np.array(CI95_l);CI95_u=np.array(CI95_u)
 CI50_l=np.array(CI50_l);CI50_u=np.array(CI50_u)
-
+X = np.asarray(X)
+Y = np.asarray(Y)
 host_plot = []
 for id in ID:
     host_plot.append(id[:-2])
@@ -113,6 +116,7 @@ host_plot = np.asarray(host_plot)
 """
 MAY WANT TO INCREASE THE NUMBER OF ADDITIONAL METRICS
 # calculate the additional metrics as reqiured here
+"""
 """
 # calculate residual gap fraction based on COVER-AGB relationship
 mask = np.isfinite(np.log(COVER2/(1-COVER2)))
@@ -123,7 +127,7 @@ mask = np.isfinite(np.log(COVER10/(1-COVER10)))
 ro1,ro0,r,p,_=stats.linregress(np.log(TCH[mask]),np.log(COVER10[mask]/(1-COVER10[mask])))
 COVER_ = 1/(1 + np.exp(-ro0) * TCH**(-ro1))
 COVER_residual10 = COVER10- COVER_
-
+"""
 """
 UPDATE THIS PART TO PROVIDE A LIST OF MODELS TO USE
 """
@@ -164,16 +168,18 @@ Xpca = pca.transform(X)
 """
 cal_data = pd.DataFrame({'AGB':AGB,
                         'TCH':TCH,
-                        'COVERmean':COVERmean,
-                        'COVER2':COVER2,
-                        'COVER10':COVER10,
-                        'COVER_res2':COVER_residual2,
-                        'COVER_res10':COVER_residual10,
+                        'x':X,
+                        'y':Y,
                         'TCH_squared':TCH**2,
                         'lnAGB':np.log(AGB),
                         'lnTCH':np.log(TCH),
                         'plot':host_plot,
                         'Collection':COLLECTION})
+                        #'COVERmean':COVERmean,
+                        #'COVER2':COVER2,
+                        #'COVER10':COVER10,
+                        #'COVER_res2':COVER_residual2,
+                        #'COVER_res10':COVER_residual10,
 
 """
 # Model selection - run LOO cross validation to find best model from predefined
@@ -191,14 +197,16 @@ for mm,model in enumerate(models_to_test):
     loo = LeaveOneOut()
     loo.get_n_splits(cal_data)
     for train_index,test_index in loo.split(cal_data):
+        print(count)
         # fit a linear mixed effects model that incorporates the plot cluster as
         # a random effect
         mod_iter = smf.mixedlm(model,data=cal_data.iloc[train_index],
                                     groups='plot').fit()
+        print(mod_iter.summary())
         AGB_mod_loo[count] = mod_iter.predict(cal_data.iloc[test_index])
         count+=1
 
-    if log_log[mm]:
+    if log_log:
         # Baskerville (1972) correction factor for bias in untransformed mean
         CF = st.calculate_baskervilleCF(cal_data['lnAGB'],AGB_mod_loo)
         AGB_mod_loo = CF*np.exp(AGB_mod_loo)
@@ -210,7 +218,7 @@ for mm,model in enumerate(models_to_test):
     # fit full model
     mod_full = smf.mixedlm(model,data=cal_data,groups='plot').fit()
     results[model]['residual'] = mod_full.resid
-    print(model,'%.3f' % np.mean(results[model]['r2_score']))
+    print(model,'%.3f' % results[model]['r2_score'])
 
     # plot qq plot if desired
     if test_qqplot[mm]:
@@ -225,12 +233,13 @@ log_log=True
 # leave one out cross-validation
 n_iter = TCH_all.shape[1]
 AGB_mod_loo= np.zeros((n_obs,n_iter))
+AGB_obs_mc= np.zeros((n_obs,n_iter))
 loo = LeaveOneOut()
 np.random.seed(29)
 for ii in range(0,n_iter):
     AGB_iter=AGB+np.random.randn(AGB.size)*AGB_UNC
     AGB_iter[AGB_iter<0]=AGB[AGB_iter<0]
-
+    AGB_obs_mc[:,ii]=AGB_iter.copy()
     cal_data_mc = pd.DataFrame({'AGB':AGB_iter,
                                 'TCH':TCH_all[:,ii],
                                 'lnAGB':np.log(AGB),
@@ -254,6 +263,15 @@ _,_,r,_,_=stats.linregress(cal_data.AGB,np.median(AGB_mod_loo,axis=1))
 r2_score = r**2
 rmse_score = np.sqrt(np.mean((cal_data.AGB-np.median(AGB_mod_loo,axis=1))**2))
 
+# save some information for plotting later
+AGBloo = np.median(AGB_mod_loo,axis=1)
+save_df = pd.DataFrame({'AGB':AGB,
+                        'AGBmc_med':np.median(AGB_obs_mc,axis=1),
+                        'AGBloo':AGBloo,
+                        'residual':cal_data.AGB-AGBloo,
+                        'plot':host_plot,
+                        'x':X,
+                        'y':Y})
 # fit full model
 mod_full = smf.mixedlm(model,data=cal_data,groups='plot').fit()
 if log_log:
@@ -267,48 +285,18 @@ test_data = cal_data.copy()
 test_data['plot'][:]=0
 test_data['AGBmod'] = pd.Series(CF*np.exp(mod_full.predict(test_data)), index=test_data.index)
 """
-# plot final model and observed vs LOO prediction
-fig2, axes = plt.subplots(nrows=1,ncols=2,figsize = [8,4])
-axes[0].plot(cal_data.TCH[cal_data.Collection==0],cal_data.AGB[cal_data.Collection==0],'.',color='red')
-axes[0].plot(cal_data.TCH[cal_data.Collection==1],cal_data.AGB[cal_data.Collection==1],'.',color='blue')
-axes[0].plot(cal_data.TCH[cal_data.Collection==0],test_data.AGBmod[cal_data.Collection==0],'-',color='red')
-axes[0].plot(cal_data.TCH[cal_data.Collection==1],test_data.AGBmod[cal_data.Collection==1],'-',color='blue')
-axes[0].errorbar(TCH,AGB,xerr=(TCH-CI95_l,CI95_u-TCH),
-                    marker='',linestyle='',color='0.67',linewidth=0.5)
-axes[0].errorbar(TCH,AGB,xerr=(TCH-CI50_l,CI50_u-TCH),yerr=AGB_UNC,
-                    marker='',linestyle='',color='0.33',linewidth=0.75)
-
-axes[0].set_title('TCH vs. field AGB')
-axes[0].set_ylabel('Modelled AGB (LOO) / Mg ha$^{-1}$')
-axes[0].set_xlabel('TCH / m')
-
-axes[1].plot([0,np.max(AGB)],[0,np.max(AGB)],'--',color='0.5')
-axes[1].plot(AGB[COLLECTION==0],AGB_mod_loo[COLLECTION==0],'.',color='red')
-axes[1].plot(AGB[COLLECTION==1],AGB_mod_loo[COLLECTION==1],'.',color='blue')
-axes[1].errorbar(AGB,AGB_mod_loo,xerr=(AGB_UNC),
-                    marker='',linestyle='',color='0.33',linewidth=0.75)
-
-axes[1].set_title('field AGB vs. LOO prediction')
-axes[1].set_xlabel('field AGB / Mg ha$^{-1}$')
-axes[1].set_ylabel('Modelled AGB (LOO) / Mg ha$^{-1}$')
-axes[1].annotate('RMSE = %.2f Mg ha$^{-1}$\n$r^2$ = %.3f' % (rmse_score,r2_score),
-                    xy=(0.95,0.05),xycoords='axes fraction',ha='right',va='bottom')
-
-fig2.tight_layout()
-fig2.savefig('montecarlo_fitted_model_and_LOO_%s.png' % version)
-fig2.show()
-"""
-"""
-equivalent, but only with the LOO validation
+# plot the LOO validation
 """
 fig2, ax = plt.subplots(nrows=1,ncols=1,figsize = [4,4])
 xerr = (np.median(AGB_mod_loo,axis=1)-np.percentile(AGB_mod_loo,2.5,axis=1),
         np.percentile(AGB_mod_loo,97.5,axis=1)-np.median(AGB_mod_loo,axis=1))
 ax.plot([0,np.max(AGB)],[0,np.max(AGB)],'--',color='0.5',lw=0.8)
-ax.plot(np.median(AGB_mod_loo[COLLECTION==0],axis=1),AGB[COLLECTION==0],'.',color='black',ms=5)
-ax.plot(np.median(AGB_mod_loo[COLLECTION==1],axis=1),AGB[COLLECTION==1],'.',mec='black',mfc='white',ms=5)
 ax.errorbar(np.median(AGB_mod_loo,axis=1),AGB,yerr=(AGB_UNC),xerr=xerr,
-                    marker='',linestyle='',color='0.33',linewidth=0.75)
+            marker='',linestyle='',color='0.33',linewidth=0.75)
+ax.plot(np.median(AGB_mod_loo[COLLECTION==0],axis=1),AGB[COLLECTION==0],'.',
+        color='black',ms=5)
+ax.plot(np.median(AGB_mod_loo[COLLECTION==1],axis=1),AGB[COLLECTION==1],'.',
+        mec='black',mfc='white',ms=5)
 
 ax.set_title('field AGB vs. LOO prediction')
 ax.set_ylabel('field AGB / Mg ha$^{-1}$')
@@ -426,5 +414,5 @@ fig3.show()
 """
 SAVE DETAILS OF MODEL FOR FUTURE USE
 """
-pt2_output = {'cal_data':cal_data,'mc_results':mc_results}
+tput = {'cal_data':cal_data,'mc_results':mc_results,'loo_results':save_df}
 np.savez(pt2_outfile,pt2_output)
